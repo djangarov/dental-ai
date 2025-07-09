@@ -68,7 +68,7 @@ def get_model() -> Model:
 
     # Data augmentation using the following Keras preprocessing layers
     x = layers.RandomFlip('horizontal')(img_input)
-    x = layers.RandomRotation(0.1)(img_input)
+    x = layers.RandomRotation(0.1)(x)
     x = layers.RandomZoom(0.1)(x)
 
     # Standardize values to be in the [0, 1] range by using tf.keras.layers.Rescaling
