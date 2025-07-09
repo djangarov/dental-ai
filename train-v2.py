@@ -9,7 +9,7 @@ from tensorflow.keras.optimizers import Adam
 
 from sklearn.model_selection import train_test_split
 
-EPOCHS = 10
+EPOCHS = 1
 IMG_WIDTH = 150
 IMG_HEIGHT = 150
 NUM_CATEGORIES = 6
@@ -48,7 +48,7 @@ def main():
     model.fit(x_train, validation_data=y_test, epochs=EPOCHS)
 
     # # Evaluate neural network performance
-    model.evaluate(x_train, y_test, verbose=2)
+    model.evaluate(y_test, verbose=2)
 
     # # Save model to file
     filename = "dental_model.keras"
