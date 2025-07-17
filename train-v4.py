@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 
-EPOCHS = 20
+EPOCHS =50
 IMG_WIDTH = 150
 IMG_HEIGHT = 150
 TEST_SIZE = 0.4
@@ -51,14 +51,38 @@ def main():
     model = get_model(num_categories)
     model.summary()
 
-    # Fit model on training data
-    history = model.fit(x_train, validation_data=y_test, epochs=EPOCHS)
+    # For small datasets, use more aggressive strategies
+    callbacks = [
+        tf.keras.callbacks.EarlyStopping(
+            patience=15,  # More patience for small datasets
+            restore_best_weights=True,
+            monitor='val_accuracy'
+        ),
+        tf.keras.callbacks.ReduceLROnPlateau(
+            factor=0.5,
+            patience=5,
+            min_lr=1e-7,
+            monitor='val_accuracy'
+        ),
+        tf.keras.callbacks.ModelCheckpoint(
+            f"{args.model_name}_best.keras",
+            save_best_only=True,
+            monitor='val_accuracy'
+        )
+    ]
 
+    # Fit model on training data
+    history = model.fit(
+        x_train,
+        validation_data=y_test,
+        epochs=EPOCHS,  # Increased epochs
+        callbacks=callbacks
+    )
     # Evaluate neural network performance
     model.evaluate(y_test, verbose=2)
     visualize_training(history)
 
-    # Save model to file
+    # # Save model to file
     filename = args.model_name + ".keras"
     model.save(filename)
     print(f"Model saved to {filename}.")
@@ -151,43 +175,43 @@ def get_model(num_categories: int) -> Model:
 
     # Data augmentation using the following Keras preprocessing layers
     x = layers.RandomFlip('horizontal')(img_input)
-    x = layers.RandomRotation(0.1)(x)
-    x = layers.RandomZoom(0.1)(x)
+    x = layers.RandomRotation(0.2)(x)
+    x = layers.RandomZoom(0.2)(x)
+    x = layers.RandomBrightness(0.1)(x)
+    x = layers.RandomContrast(0.1)(x)
 
     # Standardize values to be in the [0, 1] range by using tf.keras.layers.Rescaling
     x = layers.Rescaling(1./255)(x)
 
     # First convolution extracts 32 filters that are 3x3
-    # Convolution is followed by max-pooling layer with a 2x2 window
-    x = layers.Conv2D(32, 3, activation='relu')(x)
+    x = layers.Conv2D(32, 3, activation='relu', padding='same')(x)
+    x = layers.BatchNormalization()(x)
     x = layers.MaxPooling2D(2)(x)
+    x = layers.Dropout(0.25)(x)  # Early dropout
 
-    # Second convolution extracts 32 filters that are 3x3
-    # Convolution is followed by max-pooling layer with a 2x2 window
-    x = layers.Conv2D(64, 3, activation='relu')(x)
+    # Second convolution extracts 64 filters that are 3x3
+    x = layers.Conv2D(64, 3, activation='relu', padding='same')(x)
+    x = layers.BatchNormalization()(x)
     x = layers.MaxPooling2D(2)(x)
+    x = layers.Dropout(0.25)(x)
 
-    # Third convolution extracts 64 filters that are 3x3
-    # Convolution is followed by max-pooling layer with a 2x2 window
+    # Third convolution extracts 128 filters that are 3x3
     x = layers.Convolution2D(128, 3, activation='relu')(x)
     x = layers.MaxPooling2D(2)(x)
 
     # Fourth convolution extracts 64 filters that are 3x3
     # Convolution is followed by max-pooling layer with a 2x2 window
-    x = layers.Convolution2D(256, 3, activation='relu')(x)
+    x = layers.Conv2D(128, 3, activation='relu', padding='same')(x)
+    x = layers.BatchNormalization()(x)
     x = layers.MaxPooling2D(2)(x)
+    x = layers.Dropout(0.25)(x)
 
     # Flatten feature map to a 1-dim tensor
     x = layers.GlobalAveragePooling2D()(x)
 
-    # Create a fully connected layer with ReLU activation and 512 hidden units
-    x = layers.Dense(512, activation='relu')(x)
-
-    # Add a dropout rate of 0.5
-    x = layers.Dropout(0.5)(x)
-
+    # Smaller dense layer
     x = layers.Dense(256, activation='relu')(x)
-    x = layers.Dropout(0.3)(x)
+    x = layers.Dropout(0.5)(x)
 
     # Create output layer with a single node and softmax activation
     output = layers.Dense(num_categories, activation='softmax')(x)
@@ -196,7 +220,7 @@ def get_model(num_categories: int) -> Model:
     model = Model(img_input, output)
 
     model.compile(
-        optimizer=Adam(learning_rate=0.001),
+        optimizer=Adam(learning_rate=0.0001),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(),
         metrics=['accuracy']
     )

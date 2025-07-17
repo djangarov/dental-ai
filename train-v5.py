@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
 
-EPOCHS = 20
+EPOCHS =50
 IMG_WIDTH = 150
 IMG_HEIGHT = 150
 TEST_SIZE = 0.4
@@ -147,56 +147,23 @@ def get_model(num_categories: int) -> Model:
     """
     # Our input feature map is 150x150x3: 150x150 for the image pixels, and 3 for
     # the three color channels: R, G, and B
-    img_input = layers.Input(shape=(IMG_WIDTH, IMG_HEIGHT, 3))
+    base_model = tf.keras.applications.ResNet50(
+        input_shape=(IMG_WIDTH, IMG_HEIGHT, 3),
+        include_top=False,
+        weights='imagenet'
+    )
 
-    # Data augmentation using the following Keras preprocessing layers
-    x = layers.RandomFlip('horizontal')(img_input)
-    x = layers.RandomRotation(0.1)(x)
-    x = layers.RandomZoom(0.1)(x)
+    base_model.trainable = False  # Freeze base model
 
-    # Standardize values to be in the [0, 1] range by using tf.keras.layers.Rescaling
-    x = layers.Rescaling(1./255)(x)
-
-    # First convolution extracts 32 filters that are 3x3
-    # Convolution is followed by max-pooling layer with a 2x2 window
-    x = layers.Conv2D(32, 3, activation='relu')(x)
-    x = layers.MaxPooling2D(2)(x)
-
-    # Second convolution extracts 32 filters that are 3x3
-    # Convolution is followed by max-pooling layer with a 2x2 window
-    x = layers.Conv2D(64, 3, activation='relu')(x)
-    x = layers.MaxPooling2D(2)(x)
-
-    # Third convolution extracts 64 filters that are 3x3
-    # Convolution is followed by max-pooling layer with a 2x2 window
-    x = layers.Convolution2D(128, 3, activation='relu')(x)
-    x = layers.MaxPooling2D(2)(x)
-
-    # Fourth convolution extracts 64 filters that are 3x3
-    # Convolution is followed by max-pooling layer with a 2x2 window
-    x = layers.Convolution2D(256, 3, activation='relu')(x)
-    x = layers.MaxPooling2D(2)(x)
-
-    # Flatten feature map to a 1-dim tensor
-    x = layers.GlobalAveragePooling2D()(x)
-
-    # Create a fully connected layer with ReLU activation and 512 hidden units
-    x = layers.Dense(512, activation='relu')(x)
-
-    # Add a dropout rate of 0.5
-    x = layers.Dropout(0.5)(x)
-
-    x = layers.Dense(256, activation='relu')(x)
-    x = layers.Dropout(0.3)(x)
-
-    # Create output layer with a single node and softmax activation
-    output = layers.Dense(num_categories, activation='softmax')(x)
-
-    # Configure and compile the model
-    model = Model(img_input, output)
+    model = tf.keras.Sequential([
+        base_model,
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dropout(0.2),
+        tf.keras.layers.Dense(num_categories, activation='softmax')
+    ])
 
     model.compile(
-        optimizer=Adam(learning_rate=0.001),
+        optimizer=Adam(learning_rate=0.0001),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(),
         metrics=['accuracy']
     )
