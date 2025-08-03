@@ -10,11 +10,12 @@ from tensorflow.keras.optimizers import Adam
 from utils import find_problematic_files, save_model, visualize_training
 
 
-EPOCHS = 50
-IMG_WIDTH = 224
-IMG_HEIGHT = 224
+EPOCHS = 30
+IMG_WIDTH = 299
+IMG_HEIGHT = 299
 TEST_SIZE = 0.4
-BATCH_SIZE = 16
+BATCH_SIZE = 32
+# BATCH_SIZE = 8   # Reduced due to larger image size
 
 
 def main():
@@ -99,7 +100,7 @@ def get_model(num_categories: int) -> Model:
     """
     # Our input feature map is 150x150x3: 150x150 for the image pixels, and 3 for
     # the three color channels: R, G, and B
-    base_model = tf.keras.applications.ResNet50(
+    base_model = tf.keras.applications.InceptionResNetV2(
         input_shape=(IMG_WIDTH, IMG_HEIGHT, 3),
         include_top=False,
         weights='imagenet'

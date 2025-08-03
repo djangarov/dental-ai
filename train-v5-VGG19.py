@@ -14,7 +14,8 @@ EPOCHS = 50
 IMG_WIDTH = 224
 IMG_HEIGHT = 224
 TEST_SIZE = 0.4
-BATCH_SIZE = 16
+BATCH_SIZE = 32
+# BATCH_SIZE = 12  # Reduced due to larger image size
 
 
 def main():
@@ -99,7 +100,7 @@ def get_model(num_categories: int) -> Model:
     """
     # Our input feature map is 150x150x3: 150x150 for the image pixels, and 3 for
     # the three color channels: R, G, and B
-    base_model = tf.keras.applications.ResNet50(
+    base_model = tf.keras.applications.VGG19(
         input_shape=(IMG_WIDTH, IMG_HEIGHT, 3),
         include_top=False,
         weights='imagenet'

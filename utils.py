@@ -53,7 +53,7 @@ def find_problematic_files(data_dir: str) -> list[str]:
     return problematic_files
 
 
-def visualize_training(history: History, epochs: int) -> None:
+def visualize_training(model_name: str, history: History, epochs: int) -> None:
     """
     Visualize training history
     """
@@ -78,7 +78,7 @@ def visualize_training(history: History, epochs: int) -> None:
     plt.legend(loc='upper right')
     plt.title('Training and Validation Loss')
 
-    save_path = 'training_plot.png'
+    save_path = f'{model_name}_training_plot.png'
     plt.savefig(save_path, format='png', dpi=300, bbox_inches='tight')
     print(f"Training plot saved to {save_path}")
 

@@ -6,12 +6,8 @@ import os
 import sys
 import argparse
 
-# Constants (should match your training script)
-IMG_WIDTH = 150
-IMG_HEIGHT = 150
-NUM_CATEGORIES = 157
 
-def get_class_names(data_dir) -> list | None:
+def get_class_names(data_dir: str) -> list | None:
     """
     Get class names from dataset directory structure
     """
@@ -24,20 +20,20 @@ def get_class_names(data_dir) -> list | None:
             class_names.append(class_dir)
     return class_names
 
-def preprocess_image(image_path) -> tf.Tensor:
+def preprocess_image(image_path: str, img_size: tuple) -> tf.Tensor:
     """
     Preprocess a single image for prediction - MUST match training preprocessing
     """
     # Read the image file
     img = tf.keras.utils.load_img(
-        image_path, target_size=(IMG_HEIGHT, IMG_WIDTH)
+        image_path, target_size=img_size
     )
     img_array = tf.keras.utils.img_to_array(img)
     img_array = tf.expand_dims(img_array, 0) # Create a batch
 
     return img_array
 
-def predict_image(model_path, image_path, dataset_dir=None):
+def predict_image(model_path: str, image_path: str, dataset_dir: str | None = None):
     """
     Predict the class of a single image
     """
@@ -65,7 +61,7 @@ def predict_image(model_path, image_path, dataset_dir=None):
 
         # Preprocess the image
         print(f"Processing image: {image_path}")
-        processed_image = preprocess_image(image_path)
+        processed_image = preprocess_image(image_path, model.input_shape[1:3])
 
         # Make prediction
         print("Making prediction...")

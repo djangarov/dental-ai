@@ -53,7 +53,7 @@ def main():
 
     # Evaluate neural network performance
     model.evaluate(y_test, verbose=2)
-    visualize_training(history, EPOCHS)
+    visualize_training(args.model_name, history, EPOCHS)
 
     # Save model to file
     save_model(model, args.model_name)
