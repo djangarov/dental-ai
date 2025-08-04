@@ -149,29 +149,6 @@ class BaseTrainer(ABC):
         model.save(filename)
         print(f"Model saved to {filename}.")
 
-    def get_callbacks(self, model_name: str) -> list:
-        """
-        Get training callbacks
-        """
-        return [
-            tf.keras.callbacks.EarlyStopping(
-                patience=10,
-                restore_best_weights=True,
-                monitor='val_accuracy'
-            ),
-            tf.keras.callbacks.ReduceLROnPlateau(
-                factor=0.5,
-                patience=5,
-                min_lr=1e-7,
-                monitor='val_accuracy'
-            ),
-            tf.keras.callbacks.ModelCheckpoint(
-                f"{model_name}_best.keras",
-                save_best_only=True,
-                monitor='val_accuracy'
-            )
-        ]
-
     def train(self, dataset_dir: str, custome_model_name: str | None) -> tuple[Model, History]:
         """
         Main training method
@@ -192,12 +169,10 @@ class BaseTrainer(ABC):
         model.summary()
 
         # Fit model on training data
-        callbacks = self.get_callbacks(self.model_name)
         history = model.fit(
             x_train,
             validation_data=y_test,
-            epochs=self.epochs,
-            callbacks=callbacks
+            epochs=self.epochs
         )
 
         # Evaluate neural network performance
