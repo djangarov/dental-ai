@@ -12,7 +12,7 @@ class ResNet50Trainer(BaseTrainer):
     def __init__(self):
         super().__init__(
             model_name="ResNet50",
-            epochs=2,
+            epochs=50,
             test_size=0.4,
             batch_size=32,
             # batch_size=16, # Reduced due to larger image size
