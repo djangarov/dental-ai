@@ -14,8 +14,8 @@ class ResNet50Trainer(BaseTrainer):
             model_name="ResNet50",
             epochs=50,
             test_size=0.4,
-            batch_size=32,
-            # batch_size=16, # Reduced due to larger image size
+            # batch_size=32,
+            batch_size=16, # Reduced due to larger image size
             image_width=224,
             image_height=224)  # VGG19 specific settings
 

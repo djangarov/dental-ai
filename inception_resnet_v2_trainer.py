@@ -14,8 +14,8 @@ class InceptionResNetV2Trainer(BaseTrainer):
             model_name="InceptionResNetV2",
             epochs=50,
             test_size=0.4,
-            batch_size=32,
-            # batch_size=16, # Reduced due to larger image size
+            # batch_size=32,
+            batch_size=16, # Reduced due to larger image size
             image_width=299,
             image_height=299)  # InceptionV3 specific settings
 

@@ -14,7 +14,7 @@ class EfficientNetB7Trainer(BaseTrainer):
             model_name="EfficientNetB7",
             epochs=50,
             test_size=0.4,
-            batch_size=32,
+            batch_size=10,  # Adjusted for EfficientNetB7 memory requirements
             # batch_size=4,
             image_width=600,
             image_height=600)  # EfficientNetB7 specific settings
