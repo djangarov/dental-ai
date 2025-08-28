@@ -84,7 +84,7 @@ class BaseTrainer(ABC):
 
             return False
 
-    def find_problematic_files(self, data_dir: str) -> list[str]:
+    def remove_problematic_files(self, data_dir: str) -> list[str]:
         """
         Find files that might cause issues including broken images
         """
@@ -177,7 +177,7 @@ class BaseTrainer(ABC):
         """
         Main training method
         """
-        self.find_problematic_files(dataset_dir)
+        self.remove_problematic_files(dataset_dir)
         # Load image data from directory
         x_train, y_test = self.load_data(dataset_dir)
 

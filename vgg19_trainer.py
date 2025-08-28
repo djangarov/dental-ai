@@ -43,9 +43,14 @@ class VGG19Trainer(BaseTrainer):
 
         # VGG19 preprocessing
         x = tf.keras.applications.vgg19.preprocess_input(x)
-
-        # Base model
         x = base_model(x, training=False)
+
+        # Add a named convolutional layer for Grad-CAM access
+        x = tf.keras.layers.Conv2D(
+            512, (1, 1),
+            activation='relu',
+            name='grad_cam_conv'
+        )(x)
 
         # Classification head
         x = tf.keras.layers.GlobalAveragePooling2D()(x)

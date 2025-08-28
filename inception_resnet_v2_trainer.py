@@ -44,6 +44,13 @@ class InceptionResNetV2Trainer(BaseTrainer):
         x = tf.keras.applications.inception_resnet_v2.preprocess_input(x)
         x = base_model(x, training=False)
 
+        # Add a named convolutional layer for Grad-CAM access
+        x = tf.keras.layers.Conv2D(
+            512, (1, 1),
+            activation='relu',
+            name='grad_cam_conv'
+        )(x)
+
         # Classification head
         x = tf.keras.layers.GlobalAveragePooling2D()(x)
         x = tf.keras.layers.Dropout(0.3)(x)
