@@ -37,7 +37,7 @@ def preprocess_image(image_path: str, img_size: tuple, model: Model) -> tf.Tenso
 
     return img_array
 
-def draw_bounding_box_with_label(image: ImageFile, bbox: tuple, label: str, confidence: float, color=(0, 255, 0)):
+def draw_bounding_box_with_label(image: ImageFile, bbox: tuple, label: str, color=(0, 255, 0)):
     """
     Draw bounding box with label on image
     bbox: (x, y, width, height)
@@ -53,9 +53,9 @@ def draw_bounding_box_with_label(image: ImageFile, bbox: tuple, label: str, conf
         draw.rectangle([x1-i, y1-i, x2+i, y2+i], outline=color, width=1)
 
     # Prepare label text
-    label_text = f"{label}: {round(confidence*100, 1)}%"
+    label_text = f"{label}%"
 
-    font = ImageFont.load_default(14)
+    font = ImageFont.load_default(70)
 
     # Get text size
     bbox_text = draw.textbbox((0, 0), label_text, font=font, font_size=14)
@@ -89,7 +89,7 @@ def get_object_coordinates_from_gradcam(model: Model, processed_image: tf.Tensor
         print(f"Using layer: {grad_cam_layer.name}")
 
         # Fix: Use model.input instead of [model.inputs]
-        grad_model = tf.keras.models.Model(
+        grad_model = Model(
             inputs=model.input,  # Changed from [model.inputs]
             outputs=[grad_cam_layer.output, model.output]
         )
@@ -168,7 +168,7 @@ def create_enhanced_heatmap_overlay(model: Model, processed_image: tf.Tensor, or
             return None
 
         # Fix: Use model.input instead of [model.inputs]
-        grad_model = tf.keras.models.Model(
+        grad_model = Model(
             inputs=model.input,  # Changed from [model.inputs]
             outputs=[grad_cam_layer.output, model.output]
         )
@@ -246,8 +246,7 @@ def display_prediction_with_detection(image_path: str, predicted_class: int, con
 
                     # Draw bounding box
                     img_with_boxes = draw_bounding_box_with_label(
-                        img_with_boxes, (x, y, w, h), f"{label} Region {i+1}",
-                        region_conf, color
+                        img_with_boxes, (x, y, w, h), f"{label} Region {i+1}", color
                     )
             else:
                 print("No significant object regions detected")
