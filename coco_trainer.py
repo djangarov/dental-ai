@@ -104,7 +104,7 @@ def draw_detections(image, boxes, classes, scores, min_score_thresh=0.3):
     print(f"Processing {len(boxes)} potential detections...")
 
     for i, (box, score, class_id) in enumerate(zip(boxes, scores, classes)):
-        if score >= min_score_thresh:
+        if score >= min_score_thresh and int(class_id) == 18:  # Focus on 'dog' class
             ymin, xmin, ymax, xmax = box
 
             # Convert normalized coordinates to pixel coordinates
@@ -141,7 +141,7 @@ def draw_masks(image, boxes, classes, scores, masks, min_score_thresh=0.3):
     """Draw masks if available."""
     print(f"Drawing masks for image with shape: {image.shape}")
     print(f"Image data range: {image.min()} to {image.max()}")
-    
+
     if masks is None:
         print("No masks provided, falling back to bounding boxes")
         return draw_detections(image, boxes, classes, scores, min_score_thresh)
@@ -167,21 +167,21 @@ def draw_masks(image, boxes, classes, scores, masks, min_score_thresh=0.3):
 
     detection_count = 0
     print(f"Processing {len(masks)} masks...")
-    
+
     for i, (box, score, class_id, mask) in enumerate(zip(boxes, scores, classes, masks)):
-        if score >= min_score_thresh:
+        if score >= min_score_thresh and int(class_id) == 18:  # Focus on 'dog' class
             print(f"Processing detection {detection_count + 1} with score {score:.3f}")
-            
+
             # Get class name
             class_name = COCO_CLASSES.get(int(class_id), f'Class {int(class_id)}')
 
             # Apply mask overlay
             color = colors[detection_count % len(colors)]
-            
+
             # Ensure mask is 2D
             if len(mask.shape) == 3:
                 mask = mask[:, :, 0]  # Take first channel if 3D
-            
+
             # Create colored mask
             mask_colored = np.zeros_like(image_with_masks)
             for c in range(3):
@@ -228,6 +228,7 @@ if __name__ == "__main__":
     print('model loaded!')
 
     image_path = "./tf-models/research/object_detection/test_images/image1.jpg"
+    # image_path = "./test-images/alis.jpg"
     image_np = load_image_into_numpy_array(image_path)
 
     # Convert image to grayscale
