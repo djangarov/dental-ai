@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 import os
-import sys
 import tensorflow as tf
 from tensorflow.data import Dataset
 from tensorflow.keras import Model

@@ -306,11 +306,6 @@ def predict_image(model_path: str, image_path: str, dataset_dir: str | None = No
         print("\nModel Summary:")
         model.summary()
 
-        # Check model weights (should not be all zeros)
-        first_layer_weights = model.layers[0].get_weights()
-        if len(first_layer_weights) > 0:
-            print(f"First layer weight range: {first_layer_weights[0].min():.6f} to {first_layer_weights[0].max():.6f}")
-
         # Get class names if dataset directory is provided
         class_names = None
         if dataset_dir:

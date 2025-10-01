@@ -12,6 +12,7 @@ wheels/
 datasets/*
 test-images/*
 models/*
+tf-models/*
 *.zip
 *.h5
 *.keras
