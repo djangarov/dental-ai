@@ -1,7 +1,4 @@
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import Model, layers
-from tensorflow.keras.optimizers import Adam
+import keras
 
 from trainers import BaseTrainer
 
@@ -21,7 +18,7 @@ class VGG19Trainer(BaseTrainer):
             image_width=224,
             image_height=224)  # VGG19 specific settings
 
-    def get_model(self, num_categories: int) -> Model:
+    def get_model(self, num_categories: int) -> keras.Model:
         """
         Returns VGG19 transfer learning model
         """
@@ -38,36 +35,36 @@ class VGG19Trainer(BaseTrainer):
         inputs = keras.Input(shape=(self.img_width, self.img_height, 3))
 
         # Data augmentation
-        x = layers.RandomFlip("horizontal")(inputs)
-        x = layers.RandomRotation(0.15)(x)
-        x = layers.RandomZoom(0.15)(x)
-        x = layers.RandomBrightness(0.1)(x)
+        x = keras.layers.RandomFlip("horizontal")(inputs)
+        x = keras.layers.RandomRotation(0.15)(x)
+        x = keras.layers.RandomZoom(0.15)(x)
+        x = keras.layers.RandomBrightness(0.1)(x)
 
         # VGG19 preprocessing
         x = keras.applications.vgg19.preprocess_input(x)
         x = base_model(x, training=False)
 
         # Add a named convolutional layer for Grad-CAM access
-        x = layers.Conv2D(
+        x = keras.layers.Conv2D(
             512, (1, 1),
             activation='relu',
             name='grad_cam_conv'
         )(x)
 
         # Classification head
-        x = layers.GlobalAveragePooling2D()(x)
-        x = layers.Dropout(0.4)(x)
-        x = layers.Dense(1024, activation='relu')(x)
-        x = layers.Dropout(0.3)(x)
-        x = layers.Dense(512, activation='relu')(x)
-        x = layers.Dropout(0.2)(x)
+        x = keras.layers.GlobalAveragePooling2D()(x)
+        x = keras.layers.Dropout(0.4)(x)
+        x = keras.layers.Dense(1024, activation='relu')(x)
+        x = keras.layers.Dropout(0.3)(x)
+        x = keras.layers.Dense(512, activation='relu')(x)
+        x = keras.layers.Dropout(0.2)(x)
 
-        outputs = layers.Dense(num_categories, activation='softmax')(x)
+        outputs = keras.layers.Dense(num_categories, activation='softmax')(x)
 
-        model = Model(inputs, outputs)
+        model = keras.Model(inputs, outputs)
 
         model.compile(
-            optimizer=Adam(learning_rate=0.0001),
+            optimizer=keras.optimizers.Adam(learning_rate=0.0001),
             loss=keras.losses.SparseCategoricalCrossentropy(),
             metrics=['accuracy']
         )

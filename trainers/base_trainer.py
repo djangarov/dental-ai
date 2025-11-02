@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 import os
 import tensorflow as tf
-from tensorflow.data import Dataset
-from tensorflow.keras import Model
-from tensorflow.keras.callbacks import History
+import keras
 import matplotlib.pyplot as plt
 
 
@@ -24,7 +22,7 @@ class BaseTrainer(ABC):
         self.img_height = image_height
 
     @abstractmethod
-    def get_model(self, num_categories: int) -> Model:
+    def get_model(self, num_categories: int) -> keras.Model:
         """Return the compiled model for training"""
         pass
 
@@ -33,7 +31,7 @@ class BaseTrainer(ABC):
         Load image data from directory `data_dir`.
         """
         try:
-            x_train = tf.keras.utils.image_dataset_from_directory(
+            x_train = keras.utils.image_dataset_from_directory(
                 data_dir,
                 validation_split=0.2,
                 subset="training",
@@ -41,7 +39,7 @@ class BaseTrainer(ABC):
                 image_size=(self.img_height, self.img_width),
                 batch_size=self.batch_size)
 
-            y_test = tf.keras.utils.image_dataset_from_directory(
+            y_test = keras.utils.image_dataset_from_directory(
                 data_dir,
                 validation_split=0.2,
                 subset="validation",
@@ -53,7 +51,7 @@ class BaseTrainer(ABC):
         except tf.errors.InvalidArgumentError as e:
             print(f"Image format error: {e}")
 
-    def optimize_dataset(self, x_train: Dataset, y_test: Dataset) -> tuple:
+    def optimize_dataset(self, x_train: tf.data.Dataset, y_test: tf.data.Dataset) -> tuple:
         """
         Optimize dataset for performance
         """
@@ -109,7 +107,7 @@ class BaseTrainer(ABC):
 
         return problematic_files
 
-    def visualize_training(self, model_name: str, history: History) -> None:
+    def visualize_training(self, model_name: str, history: keras.callbacks.History) -> None:
         """
         Visualize training history
         """
@@ -141,7 +139,7 @@ class BaseTrainer(ABC):
 
         plt.show()
 
-    def save_model(self, model: Model, model_name: str) -> None:
+    def save_model(self, model: keras.Model, model_name: str) -> None:
         """
         Save the trained model to a file
         """
@@ -154,25 +152,25 @@ class BaseTrainer(ABC):
         Get training callbacks
         """
         return [
-            tf.keras.callbacks.EarlyStopping(
+            keras.callbacks.EarlyStopping(
                 patience=10,
                 restore_best_weights=True,
                 monitor='val_accuracy'
             ),
-            tf.keras.callbacks.ReduceLROnPlateau(
+            keras.callbacks.ReduceLROnPlateau(
                 factor=0.5,
                 patience=5,
                 min_lr=1e-7,
                 monitor='val_accuracy'
             ),
-            tf.keras.callbacks.ModelCheckpoint(
+            keras.callbacks.ModelCheckpoint(
                 f"{model_name}_best.keras",
                 save_best_only=True,
                 monitor='val_accuracy'
             )
         ]
 
-    def train(self, dataset_dir: str, custom_model_name: str | None) -> tuple[Model, History]:
+    def train(self, dataset_dir: str, custom_model_name: str | None) -> tuple[keras.Model, keras.callbacks.History]:
         """
         Main training method
         """

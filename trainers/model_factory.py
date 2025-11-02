@@ -19,7 +19,7 @@ class ModelFactory:
         trainers = {
             'vgg19': VGG19Trainer,
             'resnet50': ResNet50Trainer,
-            'inceptionv3': InceptionV3Trainer,
+            'inception_v3': InceptionV3Trainer,
             'custom': CustomTrainer,
             'inception_resnet_v2': InceptionResNetV2Trainer,
             'efficientnet_b7': EfficientNetB7Trainer
@@ -35,4 +35,4 @@ class ModelFactory:
         """
         Get list of available model types
         """
-        return ['vgg19', 'resnet50', 'inceptionv3', 'custom', 'inception_resnet_v2', 'efficientnet_b7']
+        return ['vgg19', 'resnet50', 'inception_v3', 'custom', 'inception_resnet_v2', 'efficientnet_b7']
