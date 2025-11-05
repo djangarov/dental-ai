@@ -1,10 +1,4 @@
-import os
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-
 import numpy as np
-from PIL import Image
-
 import tensorflow as tf
 import tensorflow_hub as hub
 
@@ -12,12 +6,13 @@ from processors import ImageProcessor
 
 MODEL_HANDLE = "https://tfhub.dev/tensorflow/mask_rcnn/inception_resnet_v2_1024x1024/1"
 
-class InferenceResult:
+class DetectionResult:
     def __init__(self, boxes, classes, scores, masks):
         self.boxes = boxes
         self.classes = classes
         self.scores = scores
         self.masks = masks
+
 
 class COCOObjectDetector(ImageProcessor):
     COCO_CLASSES = {
@@ -40,17 +35,33 @@ class COCOObjectDetector(ImageProcessor):
         85: 'clock', 86: 'vase', 87: 'scissors', 88: 'teddy bear',
         89: 'hair drier', 90: 'toothbrush'
     }
+    BOXES_COLORS = {
+        'red': (255, 0, 0),
+        'blue': (0, 0, 255),
+        'green': (0, 255, 0),
+        'orange': (255, 165, 0),
+        'purple': (128, 0, 128),
+        'brown': (165, 42, 42),
+        'pink': (255, 192, 203),
+        'gray': (128, 128, 128),
+        'olive': (128, 128, 0),
+        'cyan': (0, 255, 255)
+    }
 
-    def __init__(self, min_score_thresh: float = 0.3, target_class: int = 18):
+    def __init__(self, min_score_thresh: float, target_class: int):
         self.model = hub.load(MODEL_HANDLE)
         self.min_score_thresh = min_score_thresh
         self.target_class = target_class
 
-    def infer(self, image: tf.Tensor) -> dict:
-        """Run inference on the image and return detection results."""
+    def detect(self, image: tf.Tensor) -> dict:
+        """
+        Run inference on the image and return detection results.
+
+        Returns: Dictionary with detection boxes, classes, scores, and masks.
+        """
         result = self.model(image)
 
-        return InferenceResult(
+        return DetectionResult(
             boxes=result['detection_boxes'][0],
             classes=result['detection_classes'][0],
             scores=result['detection_scores'][0],
@@ -58,7 +69,12 @@ class COCOObjectDetector(ImageProcessor):
         )
 
     def validate_image(self, image: tf.Tensor) -> bool:
-        """Validate the image data."""
+        """
+        Validate the image data.
+
+        Returns:
+            bool: True if the image is valid, raises ValueError otherwise.
+        """
         if image is None or image.numpy().size == 0:
             raise ValueError("Invalid image data")
 
@@ -67,7 +83,134 @@ class COCOObjectDetector(ImageProcessor):
 
         return True
 
-    def get_cropped_inference(self, image: tf.Tensor, inference_result: InferenceResult) -> dict:
+    def get_detections_boxes(self, image: tf.Tensor, detection: DetectionResult) -> dict:
+        """
+        Draw bounding boxes and labels on the image.
+
+        Returns:
+            dict: A dictionary with detection IDs as keys and box details as values.
+        """
+        self.validate_image(image)
+
+        h, w, _ = image.shape
+        boxes = {}
+        detection_count = 0
+
+        for _, (box, score, class_id) in enumerate(zip(detection.boxes, detection.scores, detection.classes)):
+            if score < self.min_score_thresh:
+                continue
+
+            ymin, xmin, ymax, xmax = box
+
+            # Convert normalized coordinates to pixel coordinates
+            left, top = int(xmin * w), int(ymin * h)
+            width, height = int((xmax - xmin) * w), int((ymax - ymin) * h)
+
+            color_names = list(self.BOXES_COLORS.keys())
+            color = color_names[detection_count % len(color_names)]
+
+            # Get class name
+            class_name = self.COCO_CLASSES.get(int(class_id), f'Class {int(class_id)}')
+
+            # Add label
+            label = f'{class_name}: {score:.2f}'
+
+            boxes[detection_count] = {
+                'color': color,
+                'rectangle': {
+                    'left': left,
+                    'top': top,
+                    'width': width,
+                    'height': height
+                },
+                'label': label
+            }
+            detection_count += 1
+
+        return boxes
+
+    def get_mask_detections_boxes(self, image: tf.Tensor, detection: DetectionResult) -> dict:
+        """
+        Draw masks if available.
+
+        Returns:
+            dict: A dictionary with detection IDs as keys and mask details as values.
+        """
+        if detection.masks is None:
+            print("No masks provided, falling back to bounding boxes")
+            return self.get_mask_detections(image, detection)
+
+        self.validate_image(image)
+
+        # Create a copy of the image for mask overlay
+        image_with_masks = image.numpy().copy().astype(np.float32)
+
+        h, w, _ = image.shape
+        boxes = {}
+        detection_count = 0
+
+        for _, (box, score, class_id, mask) in enumerate(zip(detection.boxes, detection.scores, detection.classes, detection.masks)):
+            if score < self.min_score_thresh:
+                continue
+
+            # Get class name
+            class_name = self.COCO_CLASSES.get(int(class_id), f'Class {int(class_id)}')
+
+            # Get RGB values directly without color names
+            color_names = list(self.BOXES_COLORS.keys())
+            color_name = color_names[detection_count % len(color_names)]
+            color = self.BOXES_COLORS[color_name]
+
+            ymin, xmin, ymax, xmax = box
+
+            # Convert to pixel coordinates
+            y1, x1 = int(ymin * h), int(xmin * w)
+            y2, x2 = int(ymax * h), int(xmax * w)
+
+            # Resize mask to box size then to full image
+            mask_resized = tf.image.resize(mask[..., None], [y2-y1, x2-x1])
+            mask = np.zeros((h, w), dtype=np.float32)
+            mask[y1:y2, x1:x2] = mask_resized[:, :, 0].numpy()
+
+            # Ensure mask is 2D
+            if len(mask.shape) == 3:
+                mask = mask[:, :, 0]  # Take first channel if 3D
+
+            # Create colored mask
+            mask_colored = np.zeros_like(image_with_masks)
+            for c in range(3):
+                mask_colored[:, :, c] = mask * color[c]
+
+            # Blend mask with image (only where mask > 0.5)
+            mask_binary = mask > 0.5
+            image_with_masks = np.where(mask_binary[..., None],
+                                    0.7 * image_with_masks + 0.3 * mask_colored,
+                                    image_with_masks)
+
+            # Draw bounding box
+            ymin, xmin, ymax, xmax = box
+            left, top = int(xmin * w), int(ymin * h)
+            width, height = int((xmax - xmin) * w), int((ymax - ymin) * h)
+
+            # Add label
+            label = f'{class_name}: {score:.2f}'
+
+            boxes[detection_count] = {
+                'image': image_with_masks,
+                'color': color_name,
+                'rectangle': {
+                    'left': left,
+                    'top': top,
+                    'width': width,
+                    'height': height
+                },
+                'label': label
+            }
+            detection_count += 1
+
+        return boxes
+
+    def get_detections(self, image: tf.Tensor, detection: DetectionResult) -> dict:
         """
         Crop detected objects from the original image.
 
@@ -80,123 +223,118 @@ class COCOObjectDetector(ImageProcessor):
         detection_count = 0
         cropped_images = {}
 
-        for i, (box, score, class_id) in enumerate(zip(inference_result.boxes, inference_result.scores, inference_result.classes)):
+        for i, (box, score, class_id) in enumerate(zip(detection.boxes, detection.scores, detection.classes)):
             # Filter by confidence and optionally by class
-            if score >= self.min_score_thresh:
-                if int(class_id) != self.target_class:
-                    continue
+            if score < self.min_score_thresh:
+                continue
 
-                ymin, xmin, ymax, xmax = box
+            if int(class_id) != self.target_class:
+                continue
 
-                # Convert normalized coordinates to pixel coordinates
-                left = int(xmin * w)
-                top = int(ymin * h)
-                right = int(xmax * w)
-                bottom = int(ymax * h)
+            ymin, xmin, ymax, xmax = box
 
-                # Ensure coordinates are within image bounds
-                left = max(0, left)
-                top = max(0, top)
-                right = min(w, right)
-                bottom = min(h, bottom)
+            # Convert normalized coordinates to pixel coordinates
+            left = int(xmin * w)
+            top = int(ymin * h)
+            right = int(xmax * w)
+            bottom = int(ymax * h)
 
-                # Skip if bounding box is too small
-                if (right - left) < 10 or (bottom - top) < 10:
-                    print(f"Skipping detection {i}: bounding box too small")
-                    continue
+            # Ensure coordinates are within image bounds
+            left = max(0, left)
+            top = max(0, top)
+            right = min(w, right)
+            bottom = min(h, bottom)
 
-                # Crop the image
-                cropped_image = image.numpy()[top:bottom, left:right]
+            # Skip if bounding box is too small
+            if (right - left) < 10 or (bottom - top) < 10:
+                print(f"Skipping detection {i}: bounding box too small")
+                continue
 
-                class_name = self.COCO_CLASSES.get(int(class_id), f'class_{int(class_id)}')
+            # Crop the image
+            cropped_image = image.numpy()[top:bottom, left:right]
 
-                cropped_images[detection_count] = {
-                    'image': cropped_image,
-                    'class_id': class_id,
-                    'score': score,
-                    'class_name': class_name
-                }
+            class_name = self.COCO_CLASSES.get(int(class_id), f'class_{int(class_id)}')
 
-                detection_count += 1
+            cropped_images[detection_count] = {
+                'image': cropped_image,
+                'class_id': class_id,
+                'score': score,
+                'class_name': class_name
+            }
+
+            detection_count += 1
 
         return cropped_images
 
-    def crop_detections_with_masks(self, image: tf.Tensor, boxes: np.ndarray, classes: np.ndarray,
-                                scores: np.ndarray, masks: np.ndarray, output_dir: str = "cropped_objects_masked") -> list:
+    def get_mask_detections(self, image: tf.Tensor, detection: DetectionResult) -> dict:
         """
         Crop detected objects using masks for precise extraction.
 
         Returns:
-            List of saved file paths
+             dict: A dictionary with detection IDs as keys and cropped image data as values.
         """
         self.validate_image(image)
 
-        # Create output directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
-
         h, w, _ = image.shape
-        saved_files = []
         detection_count = 0
+        cropped_images = {}
 
-        print(f"Cropping detections with masks from image with shape: {image.shape}")
-
-        for i, (box, score, class_id, mask) in enumerate(zip(boxes, scores, classes, masks)):
+        for i, (box, score, class_id, mask) in enumerate(zip(detection.boxes, detection.scores, detection.classes, detection.masks)):
             # Filter by confidence and optionally by class
-            if score >= self.min_score_thresh:
-                if int(class_id) != self.target_class:
-                    continue
+            if score < self.min_score_thresh:
+                continue
 
-                ymin, xmin, ymax, xmax = box
+            if int(class_id) != self.target_class:
+                continue
 
-                # Convert normalized coordinates to pixel coordinates
-                left = int(xmin * w)
-                top = int(ymin * h)
-                right = int(xmax * w)
-                bottom = int(ymax * h)
+            ymin, xmin, ymax, xmax = box
 
-                # Ensure coordinates are within image bounds
-                left = max(0, left)
-                top = max(0, top)
-                right = min(w, right)
-                bottom = min(h, bottom)
+            # Convert normalized coordinates to pixel coordinates
+            left = int(xmin * w)
+            top = int(ymin * h)
+            right = int(xmax * w)
+            bottom = int(ymax * h)
 
-                # Skip if bounding box is too small
-                if (right - left) < 10 or (bottom - top) < 10:
-                    continue
+            # Ensure coordinates are within image bounds
+            left = max(0, left)
+            top = max(0, top)
+            right = min(w, right)
+            bottom = min(h, bottom)
 
-                # Ensure mask is 2D
-                if len(mask.shape) == 3:
-                    mask = mask[:, :, 0]
+            # Skip if bounding box is too small
+            if (right - left) < 10 or (bottom - top) < 10:
+                print(f"Skipping detection {i}: bounding box too small")
+                continue
 
-                # Convert mask to float32 for TensorFlow resize
-                mask_float = tf.cast(mask, tf.float32)
+            # Ensure mask is 2D
+            if len(mask.shape) == 3:
+                mask = mask[:, :, 0]
 
-                # Resize mask to match bounding box
-                mask_resized = tf.image.resize(mask_float[..., None], [bottom-top, right-left])
-                mask_binary = mask_resized[:, :, 0].numpy() > 0.5
+            # Convert mask to float32 for TensorFlow resize
+            mask_float = tf.cast(mask, tf.float32)
 
-                # Crop the image
-                cropped_image = image.numpy()[top:bottom, left:right].copy()
+            # Resize mask to match bounding box
+            mask_resized = tf.image.resize(mask_float[..., None], [bottom-top, right-left])
+            mask_binary = mask_resized[:, :, 0].numpy() > 0.5
 
-                # Apply mask (set background to white or transparent)
-                cropped_image_masked = cropped_image.copy()
-                cropped_image_masked[~mask_binary] = [255, 255, 255]  # White background
+            # Crop the image
+            cropped_image = image.numpy()[top:bottom, left:right].copy()
 
-                # Get class name for filename
-                class_name = self.COCO_CLASSES.get(int(class_id), f'class_{int(class_id)}')
+            # Apply mask (set background to white or transparent)
+            cropped_image = cropped_image.copy()
+            cropped_image[~mask_binary] = [255, 255, 255]  # White background
 
-                # Masked crop
-                filename_masked = f"{class_name}_{detection_count:03d}_masked_score_{score:.2f}.jpg"
-                filepath_masked = os.path.join(output_dir, filename_masked)
-                pil_image_masked = Image.fromarray(cropped_image_masked.astype(np.uint8))
-                pil_image_masked.save(filepath_masked, 'JPEG', quality=95)
+            # Get class name for filename
+            class_name = self.COCO_CLASSES.get(int(class_id), f'class_{int(class_id)}')
 
-                saved_files.append(filepath_masked)
-                print(f"Saved detection {detection_count + 1}: {filename_masked}")
-                print(f"  Size: {cropped_image.shape[1]}x{cropped_image.shape[0]}")
+            cropped_images[detection_count] = {
+                'image': cropped_image,
+                'class_id': class_id,
+                'score': score,
+                'class_name': class_name
+            }
 
-                detection_count += 1
+            detection_count += 1
 
-        print(f"Cropped and saved {len(saved_files)} images to '{output_dir}'")
-        return saved_files
+        return cropped_images
 
