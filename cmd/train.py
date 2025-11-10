@@ -15,15 +15,15 @@ def main():
     args = parser.parse_args()
 
     if not os.path.exists(args.dataset_dir):
-        print(f"Warning: Dataset directory '{args.dataset_dir}' not found! Class names will not be displayed.")
+        print(f'Warning: Dataset directory {args.dataset_dir} not found! Class names will not be displayed.')
 
     trainer = ModelFactory.create_trainer(args.model_type)
 
     # Train the model
     model, history = trainer.train(args.dataset_dir, args.model_name)
 
-    print(f"Training completed for {args.model_type}")
+    print(f'Training completed for {args.model_type}')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

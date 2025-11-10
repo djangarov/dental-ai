@@ -34,7 +34,7 @@ class BaseTrainer(ABC):
             x_train = keras.utils.image_dataset_from_directory(
                 data_dir,
                 validation_split=0.2,
-                subset="training",
+                subset='training',
                 seed=123,
                 image_size=(self.img_height, self.img_width),
                 batch_size=self.batch_size)
@@ -42,14 +42,14 @@ class BaseTrainer(ABC):
             y_test = keras.utils.image_dataset_from_directory(
                 data_dir,
                 validation_split=0.2,
-                subset="validation",
+                subset='validation',
                 seed=123,
                 image_size=(self.img_height, self.img_width),
                 batch_size=self.batch_size)
 
             return x_train, y_test
         except tf.errors.InvalidArgumentError as e:
-            print(f"Image format error: {e}")
+            print(f'Image format error: {e}')
 
     def optimize_dataset(self, x_train: tf.data.Dataset, y_test: tf.data.Dataset) -> tuple:
         """
@@ -77,7 +77,7 @@ class BaseTrainer(ABC):
 
             return True
         except Exception as e:
-            print(f"Invalid image {image_path}: {e}")
+            print(f'Invalid image {image_path}: {e}')
 
             return False
 
@@ -95,14 +95,14 @@ class BaseTrainer(ABC):
                 # Check for files without extensions or with unusual extensions
                 if not file_ext or file_ext not in ['.jpg', '.jpeg', '.png', '.bmp', '.gif']:
                     problematic_files.append(file_path)
-                    print(f"Unsupported format: {file_path}")
+                    print(f'Unsupported format: {file_path}')
                     os.remove(file_path)
                     continue
 
                 # Validate image format using TensorFlow
                 if not self.validate_image_format(file_path):
                     problematic_files.append(file_path)
-                    print(f"Broken image found and removed: {file_path}")
+                    print(f'Broken image found and removed: {file_path}')
                     os.remove(file_path)
 
         return problematic_files
@@ -120,22 +120,22 @@ class BaseTrainer(ABC):
         actual_epochs = len(acc)
         epochs_range = range(actual_epochs)
 
+        save_path = f'{model_name}_training_plot.png'
+
         plt.figure(figsize=(12, 8))
         plt.subplot(1, 2, 1)
         plt.plot(epochs_range, acc, label='Training Accuracy')
         plt.plot(epochs_range, val_acc, label='Validation Accuracy')
         plt.legend(loc='lower right')
         plt.title('Training and Validation Accuracy')
-
         plt.subplot(1, 2, 2)
         plt.plot(epochs_range, loss, label='Training Loss')
         plt.plot(epochs_range, val_loss, label='Validation Loss')
         plt.legend(loc='upper right')
         plt.title('Training and Validation Loss')
-
-        save_path = f'{model_name}_training_plot.png'
         plt.savefig(save_path, format='png', dpi=300, bbox_inches='tight')
-        print(f"Training plot saved to {save_path}")
+
+        print(f'Training plot saved to {save_path}')
 
         plt.show()
 
@@ -143,9 +143,9 @@ class BaseTrainer(ABC):
         """
         Save the trained model to a file
         """
-        filename = f"{model_name}.keras"
+        filename = f'{model_name}.keras'
         model.save(filename)
-        print(f"Model saved to {filename}.")
+        print(f'Model saved to {filename}.')
 
     def get_callbacks(self, model_name: str) -> list[keras.callbacks.Callback]:
         """
@@ -164,7 +164,7 @@ class BaseTrainer(ABC):
                 monitor='val_accuracy'
             ),
             keras.callbacks.ModelCheckpoint(
-                f"{model_name}_best.keras",
+                f'{model_name}_best.keras',
                 save_best_only=True,
                 monitor='val_accuracy'
             )
@@ -180,7 +180,7 @@ class BaseTrainer(ABC):
 
         # Get actual number of categories from the dataset
         num_categories = len(x_train.class_names)
-        print(f"Found {num_categories} categories in dataset")
+        print(f'Found {num_categories} categories in dataset')
 
         # Optimize dataset
         x_train, y_test = self.optimize_dataset(x_train, y_test)
@@ -206,6 +206,6 @@ class BaseTrainer(ABC):
         # Save model to file
         self.save_model(model, model_name)
 
-        print(f"{model_name} training completed!")
+        print(f'{model_name} training completed!')
 
         return model, history

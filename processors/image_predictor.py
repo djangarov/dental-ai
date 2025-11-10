@@ -54,7 +54,7 @@ class ImagePredictor(ImageProcessor):
             return PredictionResult(predicted_class, confidence, predictions[0], class_names)
 
         except Exception as e:
-            print(f"Error during prediction: {str(e)}")
+            print(f'Error during prediction: {str(e)}')
 
             return None
 

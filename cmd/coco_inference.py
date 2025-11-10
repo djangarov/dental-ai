@@ -16,7 +16,7 @@ MIN_SCORE_THRESH = 0.3
 TARGET_CLASS = 18  # Dog class ID
 
 # Main execution
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Predict image class using trained model')
     parser.add_argument('image_path', help='Path to the image to predict')
     parser.add_argument('--output-dir', default='cropped_objects', help='Directory to save cropped images')
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if not os.path.exists(args.image_path):
-        print(f"Error: Image file '{args.image_path}' not found!")
+        print(f'Error: Image file {args.image_path} not found!')
         sys.exit(1)
 
     print('loading model...')
@@ -44,20 +44,20 @@ if __name__ == "__main__":
     classes = results.classes
     scores = results.scores
 
-    print(f"Found {np.sum(scores >= MIN_SCORE_THRESH)} objects with confidence >= {MIN_SCORE_THRESH}")
+    print(f'Found {np.sum(scores >= MIN_SCORE_THRESH)} objects with confidence >= {MIN_SCORE_THRESH}')
 
     valid_detections = np.sum(scores >= MIN_SCORE_THRESH)
-    print(f"Found {valid_detections} objects with confidence >= {MIN_SCORE_THRESH}")
+    print(f'Found {valid_detections} objects with confidence >= {MIN_SCORE_THRESH}')
 
     folder_ts = str(time())
     output_dir = os.path.join(args.output_dir, folder_ts)
-    output_masked_dir = os.path.join(args.output_dir, folder_ts, "masked")
+    output_masked_dir = os.path.join(args.output_dir, folder_ts, 'masked')
 
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(output_masked_dir, exist_ok=True)
 
     if valid_detections > 0:
-        print("Drawing detections with bounding boxes...")
+        print('Drawing detections with bounding boxes...')
         detection_boxes = coco_detector.get_detections_boxes(image_np[0], results)
 
         _, ax = plt.subplots(1, figsize=(12, 8))
@@ -77,34 +77,35 @@ if __name__ == "__main__":
         ax.set_title(f'Object Detection Results ({len(detection_boxes)} objects found)', fontsize=16)
         ax.axis('off')
         plt.tight_layout()
-        filename = f"{image_name}_{len(detection_boxes):03d}.jpg"
-        filepath = os.path.join(output_dir, filename)
-        plt.savefig(filepath, format='png', dpi=300, bbox_inches='tight')
 
+        filename = f'{image_name}_{len(detection_boxes):03d}.jpg'
+        filepath = os.path.join(output_dir, filename)
+
+        plt.savefig(filepath, format='png', dpi=300, bbox_inches='tight')
         plt.show()
 
         # Crop detected objects
-        print("Cropping detected objects...")
+        print('Cropping detected objects...')
         cropped_images = coco_detector.get_detections(image_np[0], results)
 
         for detection_count, cropped_image in cropped_images.items():
             # Create filename
-            filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg"
+            filename = f'{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg'
             filepath = os.path.join(output_dir, filename)
 
             # Convert to PIL Image and save
             pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
             pil_image.save(filepath, 'JPEG', quality=95)
 
-        print(f"Saved {len(cropped_images)} cropped images")
+        print(f'Saved {len(cropped_images)} cropped images')
 
         # Handle models with masks
-        print("Model supports instance segmentation masks!")
+        print('Model supports instance segmentation masks!')
         masks = results.masks
 
         # Draw masks
         if masks is not None:
-            print("Drawing detections with masks...")
+            print('Drawing detections with masks...')
             detection_masks = coco_detector.get_mask_detections_boxes(image_np[0], results)
 
             _, ax = plt.subplots(1, figsize=(12, 8))
@@ -125,26 +126,27 @@ if __name__ == "__main__":
             ax.axis('off')
             plt.tight_layout()
 
-            filename = f"{image_name}_{len(detection_masks):03d}_mask.jpg"
+            filename = f'{image_name}_{len(detection_masks):03d}_mask.jpg'
             filepath = os.path.join(output_masked_dir, filename)
+
             plt.savefig(filepath, format='png', dpi=300, bbox_inches='tight')
             plt.show()
 
             # Crop with masks
-            print("Cropping with masks...")
+            print('Cropping with masks...')
             cropped_mask_images = coco_detector.get_mask_detections(image_np[0], results)
 
             for detection_count, cropped_image in cropped_mask_images.items():
                 # Create filename
-                filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg"
+                filename = f'{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg'
                 filepath = os.path.join(output_masked_dir, filename)
 
                 # Convert to PIL Image and save
                 pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
                 pil_image.save(filepath, 'JPEG', quality=95)
 
-            print(f"Saved {len(cropped_mask_images)} masked cropped images")
+            print(f'Saved {len(cropped_mask_images)} masked cropped images')
 
-    print("Object detection completed!")
+    print('Object detection completed!')
 
 

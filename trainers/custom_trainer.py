@@ -10,7 +10,7 @@ class CustomTrainer(BaseTrainer):
 
     def __init__(self):
         super().__init__(
-            model_name="CustomModel",
+            model_name='CustomModel',
             epochs=30,
             test_size=0.4,
             batch_size=32,

@@ -10,7 +10,7 @@ class VGG19Trainer(BaseTrainer):
 
     def __init__(self):
         super().__init__(
-            model_name="VGG19",
+            model_name='VGG19',
             epochs=50,
             test_size=0.4,
             batch_size=32,
@@ -35,7 +35,7 @@ class VGG19Trainer(BaseTrainer):
         inputs = keras.Input(shape=(self.img_width, self.img_height, 3))
 
         # Data augmentation
-        x = keras.layers.RandomFlip("horizontal")(inputs)
+        x = keras.layers.RandomFlip('horizontal')(inputs)
         x = keras.layers.RandomRotation(0.15)(x)
         x = keras.layers.RandomZoom(0.15)(x)
         x = keras.layers.RandomBrightness(0.1)(x)

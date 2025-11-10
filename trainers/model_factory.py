@@ -26,7 +26,7 @@ class ModelFactory:
         }
 
         if model_type not in trainers:
-            raise ValueError(f"Unknown model type: {model_type}")
+            raise ValueError(f'Unknown model type: {model_type}')
 
         return trainers[model_type]()
 

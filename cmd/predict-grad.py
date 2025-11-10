@@ -54,7 +54,7 @@ def draw_bounding_box_with_label(image: ImageFile, bbox: tuple, label: str, colo
         draw.rectangle([x1-i, y1-i, x2+i, y2+i], outline=color, width=1)
 
     # Prepare label text
-    label_text = f"{label}%"
+    label_text = f'{label}%'
 
     font = ImageFont.load_default(70)
 
@@ -84,10 +84,10 @@ def get_object_coordinates_from_gradcam(model: Model, processed_image: tf.Tensor
                 break
 
         if grad_cam_layer is None:
-            print("grad_cam_conv layer not found in model")
+            print('grad_cam_conv layer not found in model')
             return []
 
-        print(f"Using layer: {grad_cam_layer.name}")
+        print(f'Using layer: {grad_cam_layer.name}')
 
         # Fix: Use model.input instead of [model.inputs]
         grad_model = Model(
@@ -105,7 +105,7 @@ def get_object_coordinates_from_gradcam(model: Model, processed_image: tf.Tensor
         grads = tape.gradient(loss, conv_outputs)
 
         if grads is None or conv_outputs is None:
-            print("Could not compute gradients")
+            print('Could not compute gradients')
 
             return []
 
@@ -150,7 +150,7 @@ def get_object_coordinates_from_gradcam(model: Model, processed_image: tf.Tensor
         return coordinates
 
     except Exception as e:
-        print(f"Error getting object coordinates: {e}")
+        print(f'Error getting object coordinates: {e}')
 
         return []
 
@@ -167,7 +167,7 @@ def create_enhanced_heatmap_overlay(model: Model, processed_image: tf.Tensor, or
                 break
 
         if grad_cam_layer is None:
-            print("grad_cam_conv layer not found, falling back to default method")
+            print('grad_cam_conv layer not found, falling back to default method')
 
             return None
 
@@ -205,7 +205,7 @@ def create_enhanced_heatmap_overlay(model: Model, processed_image: tf.Tensor, or
         return heatmap_resized
 
     except Exception as e:
-        print(f"Error creating enhanced heatmap: {e}")
+        print(f'Error creating enhanced heatmap: {e}')
 
         return None
 
@@ -231,15 +231,15 @@ def display_prediction_with_detection(image_path: str, predicted_class: int, con
             coordinates = get_object_coordinates_from_gradcam(model, processed_image, img, threshold=0.4)
 
             if coordinates:
-                print(f"\nDetected {len(coordinates)} object regions:")
+                print(f'\nDetected {len(coordinates)} object regions:')
                 for i, (x, y, w, h, region_conf) in enumerate(coordinates):
-                    print(f"Region {i+1}: x={x}, y={y}, width={w}, height={h}, confidence={region_conf:.3f}")
+                    print(f'Region {i+1}: x={x}, y={y}, width={w}, height={h}, confidence={region_conf:.3f}')
 
                     # Get label
                     if class_names and predicted_class < len(class_names):
                         label = class_names[predicted_class]
                     else:
-                        label = f"Class {predicted_class}"
+                        label = f'Class {predicted_class}'
 
                     # Choose color based on region confidence
                     if region_conf > 0.7:
@@ -251,18 +251,18 @@ def display_prediction_with_detection(image_path: str, predicted_class: int, con
 
                     # Draw bounding box
                     img_with_boxes = draw_bounding_box_with_label(
-                        img_with_boxes, (x, y, w, h), f"{label} Region {i+1}", color
+                        img_with_boxes, (x, y, w, h), f'{label} Region {i+1}', color
                     )
             else:
-                print("No significant object regions detected")
+                print('No significant object regions detected')
 
         axes[1].imshow(img_with_boxes)
 
         # Create title with prediction results
         if class_names and predicted_class < len(class_names):
-            title = f"Detected: {class_names[predicted_class]}\nConfidence: {round(confidence*100, 2)}%"
+            title = f'Detected: {class_names[predicted_class]}\nConfidence: {round(confidence*100, 2)}%'
         else:
-            title = f"Detected: Class {predicted_class}\nConfidence: {round(confidence*100, 2)}%"
+            title = f'Detected: Class {predicted_class}\nConfidence: {round(confidence*100, 2)}%'
 
         axes[1].set_title(title, fontsize=14, fontweight='bold')
         axes[1].axis('off')
@@ -295,7 +295,7 @@ def display_prediction_with_detection(image_path: str, predicted_class: int, con
         plt.show()
 
     except Exception as e:
-        print(f"Error displaying image with detection: {str(e)}")
+        print(f'Error displaying image with detection: {str(e)}')
 
 def predict_image(model_path: str, image_path: str, dataset_dir: str | None = None):
     """
@@ -303,12 +303,12 @@ def predict_image(model_path: str, image_path: str, dataset_dir: str | None = No
     """
     try:
         # Load the model
-        print(f"Loading model from {model_path}...")
+        print(f'Loading model from {model_path}...')
         model = load_model(model_path)
-        print("Model loaded successfully!")
+        print('Model loaded successfully!')
 
         # Print model summary to check if it's properly trained
-        print("\nModel Summary:")
+        print('\nModel Summary:')
         model.summary()
 
         # Get class names if dataset directory is provided
@@ -316,14 +316,14 @@ def predict_image(model_path: str, image_path: str, dataset_dir: str | None = No
         if dataset_dir:
             class_names = get_class_names(dataset_dir)
             if class_names:
-                print(f"Found {len(class_names)} classes")
+                print(f'Found {len(class_names)} classes')
 
         # Preprocess the image
-        print(f"Processing image: {image_path}")
+        print(f'Processing image: {image_path}')
         processed_image = preprocess_image(image_path, model.input_shape[1:3], model)
 
         # Make prediction
-        print("Making prediction...")
+        print('Making prediction...')
         predictions = model.predict(processed_image, verbose=0)
 
         # Get the predicted class
@@ -335,23 +335,23 @@ def predict_image(model_path: str, image_path: str, dataset_dir: str | None = No
         top_5_confidences = predictions[0][top_5_indices]
 
         # Print results
-        print("\n" + "="*50)
-        print(f"PREDICTION RESULTS")
-        print("="*50)
-        print(f"Image: {os.path.basename(image_path)}")
-        print(f"Predicted class ID: {predicted_class}")
-        print(f"Confidence: {confidence:.4f} ({confidence*100:.2f}%)")
+        print('\n' + '='*50)
+        print(f'PREDICTION RESULTS')
+        print('='*50)
+        print(f'Image: {os.path.basename(image_path)}')
+        print(f'Predicted class ID: {predicted_class}')
+        print(f'Confidence: {confidence:.4f} ({confidence*100:.2f}%)')
 
         if class_names and predicted_class < len(class_names):
-            print(f"Predicted class name: {class_names[predicted_class]}")
-            print("\nTop 5 predictions:")
+            print(f'Predicted class name: {class_names[predicted_class]}')
+            print('\nTop 5 predictions:')
             for i, (idx, conf) in enumerate(zip(top_5_indices, top_5_confidences)):
                 if idx < len(class_names):
-                    print(f"{i+1}. {class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)")
+                    print(f'{i+1}. {class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)')
         else:
-            print("\nTop 5 predictions:")
+            print('\nTop 5 predictions:')
             for i, (idx, conf) in enumerate(zip(top_5_indices, top_5_confidences)):
-                print(f"{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)")
+                print(f'{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)')
 
         # Display the image with object detection
         display_prediction_with_detection(image_path, predicted_class, confidence, class_names, model, processed_image)
@@ -359,7 +359,7 @@ def predict_image(model_path: str, image_path: str, dataset_dir: str | None = No
         return predicted_class, confidence
 
     except Exception as e:
-        print(f"Error during prediction: {str(e)}")
+        print(f'Error during prediction: {str(e)}')
 
         return None, None
 
@@ -373,18 +373,18 @@ def main():
 
     # Check if files exist
     if not os.path.exists(args.model_path):
-        print(f"Error: Model file '{args.model_path}' not found!")
+        print(f'Error: Model file {args.model_path} not found!')
         sys.exit(1)
 
     if not os.path.exists(args.image_path):
-        print(f"Error: Image file '{args.image_path}' not found!")
+        print(f'Error: Image file {args.image_path} not found!')
         sys.exit(1)
 
     if not os.path.exists(args.dataset):
-        print(f"Warning: Dataset directory '{args.dataset}' not found! Class names will not be displayed.")
+        print(f'Warning: Dataset directory {args.dataset} not found! Class names will not be displayed.')
 
     # Make prediction
     predict_image(args.model_path, args.image_path, args.dataset)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

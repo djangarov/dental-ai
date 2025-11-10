@@ -4,7 +4,7 @@ Trainers package.
 Contains training modules for object detection.
 """
 
-__version__ = "1.0.0"
+__version__ = '1.0.0'
 
 from .base_trainer import BaseTrainer
 from .custom_trainer import CustomTrainer
@@ -16,25 +16,25 @@ from .vgg19_trainer import VGG19Trainer
 from .model_factory import ModelFactory
 
 __all__ = [
-    "BaseTrainer",
-    "CustomTrainer",
-    "EfficientNetB7Trainer",
-    "InceptionResNetV2Trainer",
-    "InceptionV3Trainer",
-    "ResNet50Trainer",
-    "VGG19Trainer",
-    "ModelFactory",
+    'BaseTrainer',
+    'CustomTrainer',
+    'EfficientNetB7Trainer',
+    'InceptionResNetV2Trainer',
+    'InceptionV3Trainer',
+    'ResNet50Trainer',
+    'VGG19Trainer',
+    'ModelFactory',
 ]
 
 def list_trainers():
     """List available trainer modules."""
     return [
-        "BaseTrainer",
-        "CustomTrainer",
-        "EfficientNetB7Trainer",
-        "InceptionResNetV2Trainer",
-        "InceptionV3Trainer",
-        "ResNet50Trainer",
-        "VGG19Trainer",
-        "ModelFactory",
+        'BaseTrainer',
+        'CustomTrainer',
+        'EfficientNetB7Trainer',
+        'InceptionResNetV2Trainer',
+        'InceptionV3Trainer',
+        'ResNet50Trainer',
+        'VGG19Trainer',
+        'ModelFactory',
     ]

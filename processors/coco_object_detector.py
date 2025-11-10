@@ -4,7 +4,7 @@ import tensorflow_hub as hub
 
 from processors import ImageProcessor
 
-MODEL_HANDLE = "https://tfhub.dev/tensorflow/mask_rcnn/inception_resnet_v2_1024x1024/1"
+MODEL_HANDLE = 'https://tfhub.dev/tensorflow/mask_rcnn/inception_resnet_v2_1024x1024/1'
 
 class DetectionResult:
     def __init__(self, boxes, classes, scores, masks):
@@ -76,10 +76,10 @@ class COCOObjectDetector(ImageProcessor):
             bool: True if the image is valid, raises ValueError otherwise.
         """
         if image is None or image.numpy().size == 0:
-            raise ValueError("Invalid image data")
+            raise ValueError('Invalid image data')
 
         if image.numpy().max() == image.numpy().min():
-            raise ValueError(f"Image appears to be uniform (all pixels have value {image.max()})")
+            raise ValueError(f'Image appears to be uniform (all pixels have value {image.max()})')
 
         return True
 
@@ -137,7 +137,7 @@ class COCOObjectDetector(ImageProcessor):
             dict: A dictionary with detection IDs as keys and mask details as values.
         """
         if detection.masks is None:
-            print("No masks provided, falling back to bounding boxes")
+            print('No masks provided, falling back to bounding boxes')
             return self.get_mask_detections(image, detection)
 
         self.validate_image(image)
@@ -247,7 +247,7 @@ class COCOObjectDetector(ImageProcessor):
 
             # Skip if bounding box is too small
             if (right - left) < 10 or (bottom - top) < 10:
-                print(f"Skipping detection {i}: bounding box too small")
+                print(f'Skipping detection {i}: bounding box too small')
                 continue
 
             # Crop the image
@@ -303,7 +303,7 @@ class COCOObjectDetector(ImageProcessor):
 
             # Skip if bounding box is too small
             if (right - left) < 10 or (bottom - top) < 10:
-                print(f"Skipping detection {i}: bounding box too small")
+                print(f'Skipping detection {i}: bounding box too small')
                 continue
 
             # Ensure mask is 2D
