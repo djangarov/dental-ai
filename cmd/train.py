@@ -15,7 +15,8 @@ def main():
     args = parser.parse_args()
 
     if not os.path.exists(args.dataset_dir):
-        print(f'Warning: Dataset directory {args.dataset_dir} not found! Class names will not be displayed.')
+        print(f'Error: Dataset directory {args.dataset_dir} not found! Class names will not be displayed.')
+        sys.exit(1)
 
     trainer = ModelFactory.create_trainer(args.model_type)
 

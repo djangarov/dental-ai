@@ -2,7 +2,7 @@
 """
 Processors package.
 
-Contains processors module
+Contains image processing modules
 """
 
 __version__ = '1.0.0'
@@ -17,8 +17,8 @@ __all__ = [
     'COCOObjectDetector',
 ]
 
-def list_processors():
-    """List available processors modules."""
+def list_processors() -> list[str]:
+    """List available processor modules."""
     return [
         'ImageProcessor',
         'ImageClassifier',

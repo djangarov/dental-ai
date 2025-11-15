@@ -2,7 +2,11 @@ from abc import ABC, abstractmethod
 import os
 import tensorflow as tf
 import keras
+import matplotlib
 import matplotlib.pyplot as plt
+
+matplotlib.use('TkAgg')  # Set backend for interactive plots
+plt.ion()  # Enable interactive mode
 
 
 class BaseTrainer(ABC):
@@ -10,13 +14,17 @@ class BaseTrainer(ABC):
     Abstract base class for training different CNN models
     """
 
-    def __init__(self, model_name, epochs=50, test_size=0.4, batch_size=32, image_width=150, image_height=150):
+    def __init__(self,
+                 model_name: str,
+                 epochs: int = 50,
+                 batch_size: int = 32,
+                 image_width: int = 150,
+                 image_height: int = 150) -> None:
         """
         Initialize the base trainer with the given parameters.
         """
         self.model_name = model_name
         self.epochs = epochs
-        self.test_size = test_size
         self.batch_size = batch_size
         self.img_width = image_width
         self.img_height = image_height
@@ -26,12 +34,12 @@ class BaseTrainer(ABC):
         """Return the compiled model for training"""
         pass
 
-    def load_data(self, data_dir: str) -> tuple:
+    def load_data(self, data_dir: str) -> tuple[tf.data.Dataset, tf.data.Dataset]:
         """
         Load image data from directory `data_dir`.
         """
         try:
-            x_train = keras.utils.image_dataset_from_directory(
+            train_dataset = keras.utils.image_dataset_from_directory(
                 data_dir,
                 validation_split=0.2,
                 subset='training',
@@ -39,7 +47,7 @@ class BaseTrainer(ABC):
                 image_size=(self.img_height, self.img_width),
                 batch_size=self.batch_size)
 
-            y_test = keras.utils.image_dataset_from_directory(
+            validation_dataset = keras.utils.image_dataset_from_directory(
                 data_dir,
                 validation_split=0.2,
                 subset='validation',
@@ -47,18 +55,21 @@ class BaseTrainer(ABC):
                 image_size=(self.img_height, self.img_width),
                 batch_size=self.batch_size)
 
-            return x_train, y_test
+            return train_dataset, validation_dataset
         except tf.errors.InvalidArgumentError as e:
             print(f'Image format error: {e}')
+            raise
 
-    def optimize_dataset(self, x_train: tf.data.Dataset, y_test: tf.data.Dataset) -> tuple:
+    def optimize_dataset(self,
+                         train_dataset: tf.data.Dataset,
+                         validation_dataset: tf.data.Dataset) -> tuple[tf.data.Dataset, tf.data.Dataset]:
         """
         Optimize dataset for performance
         """
-        x_train = x_train.cache().shuffle(1000).prefetch(buffer_size=tf.data.AUTOTUNE)
-        y_test = y_test.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
+        train_dataset = train_dataset.cache().shuffle(1000).prefetch(buffer_size=tf.data.AUTOTUNE)
+        validation_dataset = validation_dataset.cache().prefetch(buffer_size=tf.data.AUTOTUNE)
 
-        return x_train, y_test
+        return train_dataset, validation_dataset
 
     def validate_image_format(self, image_path: str) -> bool:
         """
@@ -67,10 +78,8 @@ class BaseTrainer(ABC):
         try:
             # Read the image file
             image_raw = tf.io.read_file(image_path)
-
             # Try to decode the image
             image = tf.image.decode_image(image_raw, channels=3)
-
             # Check if image has valid dimensions
             if image.shape[0] == 0 or image.shape[1] == 0:
                 return False
@@ -78,7 +87,6 @@ class BaseTrainer(ABC):
             return True
         except Exception as e:
             print(f'Invalid image {image_path}: {e}')
-
             return False
 
     def remove_problematic_files(self, data_dir: str) -> list[str]:
@@ -107,7 +115,9 @@ class BaseTrainer(ABC):
 
         return problematic_files
 
-    def visualize_training(self, model_name: str, history: keras.callbacks.History) -> None:
+    def visualize_training(self,
+                           model_name: str,
+                           history: keras.callbacks.History) -> None:
         """
         Visualize training history
         """
@@ -137,9 +147,12 @@ class BaseTrainer(ABC):
 
         print(f'Training plot saved to {save_path}')
 
-        plt.show()
+        plt.show(block=False)  # Make non-blocking
+        plt.pause(10)  # Show for 10 seconds
 
-    def save_model(self, model: keras.Model, model_name: str) -> None:
+    def save_model(self,
+                   model: keras.Model,
+                   model_name: str) -> None:
         """
         Save the trained model to a file
         """
@@ -170,39 +183,43 @@ class BaseTrainer(ABC):
             )
         ]
 
-    def train(self, dataset_dir: str, custom_model_name: str | None) -> tuple[keras.Model, keras.callbacks.History]:
+    def train(self,
+              dataset_dir: str,
+              custom_model_name: str | None = None) -> tuple[keras.Model, keras.callbacks.History]:
         """
         Main training method
         """
         self.remove_problematic_files(dataset_dir)
+
         # Load image data from directory
-        x_train, y_test = self.load_data(dataset_dir)
+        train_dataset, validation_dataset = self.load_data(dataset_dir)
 
         # Get actual number of categories from the dataset
-        num_categories = len(x_train.class_names)
+        num_categories = len(train_dataset.class_names)
         print(f'Found {num_categories} categories in dataset')
 
         # Optimize dataset
-        x_train, y_test = self.optimize_dataset(x_train, y_test)
+        train_dataset, validation_dataset = self.optimize_dataset(train_dataset, validation_dataset)
 
-         # Get a compiled neural network
+        # Get a compiled neural network
         model = self.get_model(num_categories)
         model.summary()
 
         model_name = custom_model_name if custom_model_name else self.model_name
+        callbacks = self.get_callbacks(model_name)
 
         # Fit model on training data
-        callbacks = self.get_callbacks(model_name)
         history = model.fit(
-            x_train,
-            validation_data=y_test,
+            train_dataset,
+            validation_data=validation_dataset,
             epochs=self.epochs,
             callbacks=callbacks
         )
 
         # Evaluate neural network performance
-        model.evaluate(y_test, verbose=2)
+        model.evaluate(validation_dataset, verbose=2)
         self.visualize_training(model_name, history)
+
         # Save model to file
         self.save_model(model, model_name)
 

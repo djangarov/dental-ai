@@ -8,22 +8,27 @@ class CustomTrainer(BaseTrainer):
     Custom model trainer
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             model_name='CustomModel',
             epochs=30,
-            test_size=0.4,
             batch_size=32,
             image_width=150,
-            image_height=150)  # Modelspecific settings
+            image_height=150) # Model specific settings
 
     def get_model(self, num_categories: int) -> keras.Model:
         """
-        Returns Custom transfer learning model
+        Returns custom CNN model with data augmentation and dropout regularization.
+
+        Args:
+            num_categories: Number of output classes for classification
+
+        Returns:
+            Compiled Keras model ready for training
         """
         # Our input feature map is 150x150x3: 150x150 for the image pixels, and 3 for
         # the three color channels: R, G, and B
-        img_input = keras.layers.Input(shape=(self.img_width, self.img_height, 3))
+        img_input = keras.layers.Input(shape=(self.img_height, self.img_width, 3))
 
         # Data augmentation using the following Keras preprocessing layers
         x = keras.layers.RandomFlip('horizontal')(img_input)
@@ -43,14 +48,14 @@ class CustomTrainer(BaseTrainer):
         x = keras.layers.Conv2D(64, 3, activation='relu')(x)
         x = keras.layers.MaxPooling2D(2)(x)
 
-        # Third convolution extracts 64 filters that are 3x3
+        # Third convolution extracts 128 filters that are 3x3
         # Convolution is followed by max-pooling layer with a 2x2 window
-        x = keras.layers.Convolution2D(128, 3, activation='relu')(x)
+        x = keras.layers.Conv2D(128, 3, activation='relu')(x)
         x = keras.layers.MaxPooling2D(2)(x)
 
-        # Fourth convolution extracts 64 filters that are 3x3
+        # Fourth convolution extracts 256 filters that are 3x3
         # Convolution is followed by max-pooling layer with a 2x2 window
-        x = keras.layers.Convolution2D(256, 3, activation='relu')(x)
+        x = keras.layers.Conv2D(256, 3, activation='relu')(x)
         x = keras.layers.MaxPooling2D(2)(x)
 
         # Flatten feature map to a 1-dim tensor

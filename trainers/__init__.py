@@ -26,7 +26,7 @@ __all__ = [
     'ModelFactory',
 ]
 
-def list_trainers():
+def list_trainers() -> list[str]:
     """List available trainer modules."""
     return [
         'BaseTrainer',

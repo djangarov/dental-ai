@@ -1,13 +1,18 @@
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
+from typing import Dict, Any
 
 from processors import ImageProcessor
 
 MODEL_URL = 'https://tfhub.dev/tensorflow/mask_rcnn/inception_resnet_v2_1024x1024/1'
 
 class DetectionResult:
-    def __init__(self, boxes, classes, scores, masks):
+    def __init__(self,
+                 boxes: tf.Tensor,
+                 classes: tf.Tensor,
+                 scores: tf.Tensor,
+                 masks: tf.Tensor | None) -> None:
         self.boxes = boxes
         self.classes = classes
         self.scores = scores
@@ -48,16 +53,22 @@ class COCOObjectDetector(ImageProcessor):
         'cyan': (0, 255, 255)
     }
 
-    def __init__(self, min_score_thresh: float, target_class: int):
+    def __init__(self,
+                 min_score_thresh: float,
+                 target_class: int) -> None:
         self.model = hub.load(MODEL_URL)
         self.min_score_thresh = min_score_thresh
         self.target_class = target_class
 
-    def detect(self, image: tf.Tensor) -> dict:
+    def detect(self, image: tf.Tensor) -> DetectionResult:
         """
         Run inference on the image and return detection results.
 
-        Returns: Dictionary with detection boxes, classes, scores, and masks.
+        Args:
+            image: Input image tensor
+
+        Returns:
+            DetectionResult object containing boxes, classes, scores, and masks.
         """
         result = self.model(image)
 
@@ -87,8 +98,12 @@ class COCOObjectDetector(ImageProcessor):
         """
         Draw bounding boxes and labels on the image.
 
+        Args:
+            image: Input image tensor
+            detection: Detection results from model inference
+
         Returns:
-            dict: A dictionary with detection IDs as keys and box details as values.
+            Dictionary with detection IDs as keys and box details as values.
         """
         self.validate_image(image)
 
@@ -107,7 +122,7 @@ class COCOObjectDetector(ImageProcessor):
             width, height = int((xmax - xmin) * w), int((ymax - ymin) * h)
 
             color_names = list(self.BOXES_COLORS.keys())
-            color = color_names[detection_count % len(color_names)]
+            color_name = color_names[detection_count % len(color_names)]
 
             # Get class name
             class_name = self.COCO_CLASSES.get(int(class_id), f'Class {int(class_id)}')
@@ -116,7 +131,7 @@ class COCOObjectDetector(ImageProcessor):
             label = f'{class_name}: {score:.2f}'
 
             boxes[detection_count] = {
-                'color': color,
+                'color': color_name,
                 'rectangle': {
                     'left': left,
                     'top': top,
@@ -138,7 +153,7 @@ class COCOObjectDetector(ImageProcessor):
         """
         if detection.masks is None:
             print('No masks provided, falling back to bounding boxes')
-            return self.get_mask_detections(image, detection)
+            return self.get_detections_boxes(image, detection)
 
         self.validate_image(image)
 
@@ -159,7 +174,7 @@ class COCOObjectDetector(ImageProcessor):
             # Get RGB values directly without color names
             color_names = list(self.BOXES_COLORS.keys())
             color_name = color_names[detection_count % len(color_names)]
-            color = self.BOXES_COLORS[color_name]
+            color_rgb = self.BOXES_COLORS[color_name]
 
             ymin, xmin, ymax, xmax = box
 
@@ -169,20 +184,20 @@ class COCOObjectDetector(ImageProcessor):
 
             # Resize mask to box size then to full image
             mask_resized = tf.image.resize(mask[..., None], [y2-y1, x2-x1])
-            mask = np.zeros((h, w), dtype=np.float32)
-            mask[y1:y2, x1:x2] = mask_resized[:, :, 0].numpy()
+            mask_full = np.zeros((h, w), dtype=np.float32)
+            mask_full[y1:y2, x1:x2] = mask_resized[:, :, 0].numpy()
 
             # Ensure mask is 2D
             if len(mask.shape) == 3:
-                mask = mask[:, :, 0]  # Take first channel if 3D
+                mask_full = mask_full[:, :, 0]  # Take first channel if 3D
 
             # Create colored mask
             mask_colored = np.zeros_like(image_with_masks)
             for c in range(3):
-                mask_colored[:, :, c] = mask * color[c]
+                mask_colored[:, :, c] = mask_full * color_rgb[c]
 
             # Blend mask with image (only where mask > 0.5)
-            mask_binary = mask > 0.5
+            mask_binary = mask_full > 0.5
             image_with_masks = np.where(mask_binary[..., None],
                                     0.7 * image_with_masks + 0.3 * mask_colored,
                                     image_with_masks)

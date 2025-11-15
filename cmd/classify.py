@@ -42,8 +42,8 @@ def main():
     print('Making prediction...')
     prediction_result = classifier.predict_image(processed_image)
 
-     # Get top 5 predictions
-    top_5_predictions =  prediction_result.get_top(5)
+    # Get top 5 predictions
+    top_5_predictions = prediction_result.get_top(5)
 
     # Print results
     print('\n' + '='*50)

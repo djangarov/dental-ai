@@ -27,14 +27,14 @@ if __name__ == '__main__':
         print(f'Error: Image file {args.image_path} not found!')
         sys.exit(1)
 
-    print('loading model...')
+    print('Loading model...')
     coco_detector = COCOObjectDetector(MIN_SCORE_THRESH, TARGET_CLASS)
-    print('model loaded!')
+    print('Model loaded!')
 
     image_np = coco_detector.preprocess_image(args.image_path)
     image_name = os.path.splitext(os.path.basename(args.image_path))[0]  # Without extension
 
-    # running inference
+    # Running inference
     print('Running inference...')
     results = coco_detector.detect(image_np)
     print('Inference completed!')
@@ -43,8 +43,6 @@ if __name__ == '__main__':
     boxes = results.boxes
     classes = results.classes
     scores = results.scores
-
-    print(f'Found {np.sum(scores >= MIN_SCORE_THRESH)} objects with confidence >= {MIN_SCORE_THRESH}')
 
     valid_detections = np.sum(scores >= MIN_SCORE_THRESH)
     print(f'Found {valid_detections} objects with confidence >= {MIN_SCORE_THRESH}')
@@ -81,7 +79,7 @@ if __name__ == '__main__':
         filename = f'{image_name}_{len(detection_boxes):03d}.jpg'
         filepath = os.path.join(output_dir, filename)
 
-        plt.savefig(filepath, format='png', dpi=300, bbox_inches='tight')
+        plt.savefig(filepath, format='jpg', dpi=300, bbox_inches='tight')
         plt.show()
 
         # Crop detected objects
@@ -90,7 +88,7 @@ if __name__ == '__main__':
 
         for detection_count, cropped_image in cropped_images.items():
             # Create filename
-            filename = f'{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg'
+            filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg"
             filepath = os.path.join(output_dir, filename)
 
             # Convert to PIL Image and save
@@ -110,6 +108,7 @@ if __name__ == '__main__':
 
             _, ax = plt.subplots(1, figsize=(12, 8))
 
+            composite_image = None
             for detection_count, detection_mask in detection_masks.items():
                 # Draw the bounding box
                 rect = patches.Rectangle((detection_mask['rectangle']['left'], detection_mask['rectangle']['top']),
@@ -121,7 +120,12 @@ if __name__ == '__main__':
                 ax.text(rect.get_x(), rect.get_y() - 10, detection_mask['label'], fontsize=12, color='white',
                         bbox=dict(boxstyle='round,pad=0.3', facecolor=detection_mask['color'], alpha=0.8))
 
-            ax.imshow(detection_mask['image'].astype(np.uint8))
+                composite_image = detection_mask['image']
+
+            # Display the composite image
+            if composite_image is not None:
+                ax.imshow(composite_image.astype(np.uint8))
+
             ax.set_title(f'Object Detection Results ({len(detection_masks)} objects found)', fontsize=16)
             ax.axis('off')
             plt.tight_layout()
@@ -129,7 +133,7 @@ if __name__ == '__main__':
             filename = f'{image_name}_{len(detection_masks):03d}_mask.jpg'
             filepath = os.path.join(output_masked_dir, filename)
 
-            plt.savefig(filepath, format='png', dpi=300, bbox_inches='tight')
+            plt.savefig(filepath, format='jpg', dpi=300, bbox_inches='tight')
             plt.show()
 
             # Crop with masks
@@ -138,7 +142,7 @@ if __name__ == '__main__':
 
             for detection_count, cropped_image in cropped_mask_images.items():
                 # Create filename
-                filename = f'{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg'
+                filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg"
                 filepath = os.path.join(output_masked_dir, filename)
 
                 # Convert to PIL Image and save

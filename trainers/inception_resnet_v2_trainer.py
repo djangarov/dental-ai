@@ -8,58 +8,64 @@ class InceptionResNetV2Trainer(BaseTrainer):
     InceptionResNetV2 model trainer
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             model_name='InceptionResNetV2',
             epochs=50,
-            test_size=0.4,
-            # batch_size=32,
-            batch_size=16, # Reduced due to larger image size
+            batch_size=16,  # Adjusted for InceptionResNetV2 memory requirements
             image_width=299,
-            image_height=299)  # InceptionV3 specific settings
+            image_height=299)  # InceptionResNetV2 specific settings
 
     def get_model(self, num_categories: int) -> keras.Model:
         """
-        Returns InceptionResNetV2 transfer learning model
+        Returns InceptionResNetV2 transfer learning model with data augmentation.
+
+        Args:
+            num_categories: Number of output classes for classification
+
+        Returns:
+            Compiled Keras model with frozen InceptionResNetV2 base and custom head
         """
-        # InceptionResNetV2 base model
+        # InceptionResNetV2 base model pre-trained on ImageNet
         base_model = keras.applications.InceptionResNetV2(
-            input_shape=(self.img_width, self.img_height, 3),
-            include_top=False,
-            weights='imagenet'
+            input_shape=(self.img_height, self.img_width, 3),
+            include_top=False,  # Exclude top classification layer
+            weights='imagenet'  # Use ImageNet pre-trained weights
         )
 
-        base_model.trainable = False  # Freeze base model
+        base_model.trainable = False  # Freeze base model for transfer learning
 
-        inputs = keras.Input(shape=(self.img_width, self.img_height, 3))
+        inputs = keras.Input(shape=(self.img_height, self.img_width, 3))
 
-        # Data augmentation
+        # Data augmentation layers
         x = keras.layers.RandomFlip('horizontal')(inputs)
         x = keras.layers.RandomRotation(0.1)(x)
         x = keras.layers.RandomZoom(0.1)(x)
         x = keras.layers.RandomBrightness(0.1)(x)
 
-        # InceptionResNetV2 preprocessing
+        # InceptionResNetV2 preprocessing and feature extraction
         x = keras.applications.inception_resnet_v2.preprocess_input(x)
         x = base_model(x, training=False)
 
-        # Add a named convolutional layer for Grad-CAM access
+        # Add custom convolutional layer for Grad-CAM visualization
         x = keras.layers.Conv2D(
             512, (1, 1),
             activation='relu',
             name='grad_cam_conv'
         )(x)
 
-        # Classification head
+        # Classification head with regularization
         x = keras.layers.GlobalAveragePooling2D()(x)
         x = keras.layers.Dropout(0.3)(x)
         x = keras.layers.Dense(512, activation='relu')(x)
         x = keras.layers.Dropout(0.2)(x)
 
+        # Output layer for multi-class classification
         outputs = keras.layers.Dense(num_categories, activation='softmax')(x)
 
         model = keras.Model(inputs, outputs)
 
+        # Compile model with lower learning rate for transfer learning
         model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=0.0001),
             loss=keras.losses.SparseCategoricalCrossentropy(),
