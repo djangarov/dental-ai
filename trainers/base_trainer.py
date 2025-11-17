@@ -166,7 +166,6 @@ class BaseTrainer(ABC):
                 restore_best_weights=True,
                 monitor='val_accuracy',
                 min_delta=0.001,
-                restore_best_weights=True,
                 verbose=1
             ),
             keras.callbacks.ReduceLROnPlateau(
