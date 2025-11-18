@@ -11,8 +11,8 @@ class InceptionV3Trainer(BaseTrainer):
     def __init__(self) -> None:
         super().__init__(
             model_name='InceptionV3',
-            epochs=50,
-            batch_size=32,  # Adjusted for InceptionV3 memory requirements
+            epochs=25,
+            batch_size=16,  # Adjusted for InceptionV3 memory requirements
             image_width=299,
             image_height=299)  # InceptionV3 specific settings
 
@@ -41,7 +41,9 @@ class InceptionV3Trainer(BaseTrainer):
         x = keras.layers.RandomFlip('horizontal')(inputs)
         x = keras.layers.RandomRotation(0.1)(x)
         x = keras.layers.RandomZoom(0.1)(x)
+        x = keras.layers.RandomContrast(0.1)(x)
         x = keras.layers.RandomBrightness(0.1)(x)
+        x = keras.layers.RandomTranslation(0.1, 0.1)(x)
 
         # InceptionV3 preprocessing and feature extraction
         x = keras.applications.inception_v3.preprocess_input(x)
@@ -56,18 +58,27 @@ class InceptionV3Trainer(BaseTrainer):
 
         # Classification head with regularization
         x = keras.layers.GlobalAveragePooling2D()(x)
-        x = keras.layers.Dropout(0.3)(x)
-        x = keras.layers.Dense(512, activation='relu')(x)
-        x = keras.layers.Dropout(0.2)(x)
+        x = keras.layers.Dropout(0.5)(x)
+        # Add L2 regularization
+        x = keras.layers.Dense(256,
+                               activation='relu',
+                               kernel_regularizer=keras.regularizers.l2(0.002))(x)
+        x = keras.layers.BatchNormalization()(x)
+        x = keras.layers.Dropout(0.4)(x)
 
         # Output layer for multi-class classification
-        outputs = keras.layers.Dense(num_categories, activation='softmax')(x)
+        outputs = keras.layers.Dense(num_categories,
+                                     activation='softmax',
+                                     kernel_regularizer=keras.regularizers.l2(0.001))(x)
 
         model = keras.Model(inputs, outputs)
 
         # Compile model with lower learning rate for transfer learning
         model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=0.0001),
+            optimizer=keras.optimizers.Adam(
+                learning_rate=0.0003,
+                weight_decay=0.0002
+            ),
             loss=keras.losses.SparseCategoricalCrossentropy(),
             metrics=['accuracy']
         )
