@@ -1,17 +1,27 @@
+import argparse
+import json
 import os
 import sys
-import argparse
+from time import time
+
 import keras
+import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from processors import ImageClassifier
+from processors import COCOObjectDetector, ImageClassifier
 
+MIN_SCORE_THRESH = 0.3
+TARGET_CLASS = 18  # Dog class ID
 
 def main():
     parser = argparse.ArgumentParser(description='Classify image class using trained model')
     parser.add_argument('model_path', help='Path to the trained model file (.keras)')
     parser.add_argument('image_path', help='Path to the image to classify')
     parser.add_argument('dataset', help='Path to dataset directory for class names')
+    parser.add_argument('--output-dir', default='cropped_objects', help='Directory to save cropped images')
 
     args = parser.parse_args()
 
@@ -27,41 +37,192 @@ def main():
     if not os.path.exists(args.dataset):
         print(f'Warning: Dataset directory {args.dataset} not found! Class names will not be displayed.')
 
-    # Load the model
-    print(f'Loading model from {args.model_path}...')
-    model = keras.models.load_model(args.model_path)
-    print('Model loaded successfully!')
+    print('Loading model...')
+    coco_detector = COCOObjectDetector(MIN_SCORE_THRESH, TARGET_CLASS)
+    print('Model loaded!')
 
-    classifier = ImageClassifier(model, args.dataset)
+    image_np = coco_detector.preprocess_image(args.image_path)
+    image_name = os.path.splitext(os.path.basename(args.image_path))[0]  # Without extension
 
-    # Preprocess the image
-    print(f'Processing image: {args.image_path}')
-    processed_image = classifier.preprocess_image(args.image_path, classifier.model.input_shape[1:3])
+    # Running inference
+    print('Running inference...')
+    results = coco_detector.detect(image_np)
+    print('Inference completed!')
 
-    # Make prediction
-    print('Making prediction...')
-    prediction_result = classifier.predict_image(processed_image)
+    valid_detections = np.sum(results.scores >= MIN_SCORE_THRESH)
+    print(f'Found {valid_detections} objects with confidence >= {MIN_SCORE_THRESH}')
 
-    # Get top 5 predictions
-    top_5_predictions = prediction_result.get_top(5)
+    folder_ts = str(time())
+    output_dir = os.path.join(args.output_dir, folder_ts)
+    output_masked_dir = os.path.join(args.output_dir, folder_ts, 'masked')
 
-    # Print results
-    print('\n' + '='*50)
-    print(f'PREDICTION RESULTS')
-    print('='*50)
-    print(f'Predicted class ID: {prediction_result.predicted_class}')
-    print(f'Confidence: {prediction_result.confidence:.4f} ({prediction_result.confidence*100:.2f}%)')
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(output_masked_dir, exist_ok=True)
 
-    if prediction_result.class_names and prediction_result.predicted_class < len(prediction_result.class_names):
-        print(f'Predicted class name: {prediction_result.class_names[prediction_result.predicted_class]}')
-        print('\nTop 5 predictions:')
-        for i, (idx, conf) in enumerate(top_5_predictions):
-            if idx < len(prediction_result.class_names):
-                print(f'{i+1}. {prediction_result.class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)')
-    else:
-        print('\nTop 5 predictions:')
-        for i, (idx, conf) in enumerate(top_5_predictions):
-            print(f'{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)')
+    if valid_detections > 0:
+        # Load the model
+        print(f'Loading model from {args.model_path}...')
+        model = keras.models.load_model(args.model_path)
+        print('Model loaded successfully!')
+
+        classifier = ImageClassifier(model, args.dataset)
+
+        print('Drawing detections with bounding boxes...')
+        detection_boxes = coco_detector.get_detections_boxes(image_np[0], results)
+
+        _, ax = plt.subplots(1, figsize=(12, 8))
+        ax.imshow(image_np[0])
+
+        for detection_count, detection_box in detection_boxes.items():
+            # Draw the bounding box
+            rect = patches.Rectangle((detection_box['rectangle']['left'], detection_box['rectangle']['top']),
+                                     detection_box['rectangle']['width'], detection_box['rectangle']['height'],
+                                     linewidth=3, edgecolor=detection_box['color'], facecolor='none')
+            ax.add_patch(rect)
+
+            # Add label
+            ax.text(rect.get_x(), rect.get_y() - 10, detection_box['label'], fontsize=12, color='white',
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor=detection_box['color'], alpha=0.8))
+
+        ax.set_title(f'Object Detection Results ({len(detection_boxes)} objects found)', fontsize=16)
+        ax.axis('off')
+        plt.tight_layout()
+
+        filename = f'{image_name}_{len(detection_boxes):03d}.jpg'
+        filepath = os.path.join(output_dir, filename)
+
+        plt.savefig(filepath, format='jpg', dpi=300, bbox_inches='tight')
+        plt.show()
+
+        # Crop detected objects
+        print('Cropping detected objects...')
+        cropped_images = coco_detector.get_detections(image_np[0], results)
+
+        for detection_count, cropped_image in cropped_images.items():
+            # Create filename
+            filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}"
+            filepath = os.path.join(output_dir, f"{filename}.jpg")
+
+            # Convert to PIL Image and save
+            pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
+            pil_image.save(filepath, 'JPEG', quality=95)
+
+            processed_image = classifier.preprocess_image(filepath, classifier.model.input_shape[1:3])
+
+            # Make prediction
+            print('Making prediction...')
+            prediction_result = classifier.predict_image(processed_image)
+            # Get top 5 predictions
+            top_5_predictions = prediction_result.get_top(5)
+
+            prediction_data = {
+                'image_path': filepath,
+                'predicted_class_id': int(prediction_result.predicted_class),  # Convert to Python int
+                'confidence': float(prediction_result.confidence),
+                'predicted_class_name': (prediction_result.class_names[prediction_result.predicted_class]
+                                    if prediction_result.class_names and
+                                    prediction_result.predicted_class < len(prediction_result.class_names)
+                                    else f'Class {prediction_result.predicted_class}'),
+                'top_5_predictions': [
+                    {
+                        'rank': i + 1,
+                        'class_id': int(idx),  # Ensure this is Python int
+                        'class_name': (prediction_result.class_names[idx]
+                                    if prediction_result.class_names and idx < len(prediction_result.class_names)
+                                    else f'Class {idx}'),
+                        'confidence': float(conf),  # Ensure this is Python float
+                        'confidence_percentage': float(conf * 100)
+                    }
+                    for i, (idx, conf) in enumerate(top_5_predictions)
+                ],
+                'timestamp': float(time())  # Ensure this is Python float
+            }
+
+            # Save to JSON file
+            json_filename = f"{filename}.json"
+            json_filepath = os.path.join(output_dir, json_filename)
+
+            with open(json_filepath, 'w') as f:
+                json.dump(prediction_data, f, indent=2)
+
+            print(f'Predictions saved to: {json_filepath}')
+
+            # Print results
+            print('\n' + '='*50)
+            print(f'PREDICTION RESULTS')
+            print('='*50)
+            print(f'Predicted class ID: {prediction_result.predicted_class}')
+            print(f'Confidence: {prediction_result.confidence:.4f} ({prediction_result.confidence*100:.2f}%)')
+
+            if prediction_result.class_names and prediction_result.predicted_class < len(prediction_result.class_names):
+                print(f'Predicted class name: {prediction_result.class_names[prediction_result.predicted_class]}')
+                print('\nTop 5 predictions:')
+                for i, (idx, conf) in enumerate(top_5_predictions):
+                    if idx < len(prediction_result.class_names):
+                        print(f'{i+1}. {prediction_result.class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)')
+            else:
+                print('\nTop 5 predictions:')
+                for i, (idx, conf) in enumerate(top_5_predictions):
+                    print(f'{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)')
+
+        print(f'Saved {len(cropped_images)} cropped images')
+
+        # Handle models with masks
+        print('Model supports instance segmentation masks!')
+        masks = results.masks
+
+        # Draw masks
+        if masks is not None:
+            print('Drawing detections with masks...')
+            detection_masks = coco_detector.get_mask_detections_boxes(image_np[0], results)
+
+            _, ax = plt.subplots(1, figsize=(12, 8))
+
+            composite_image = None
+            for detection_count, detection_mask in detection_masks.items():
+                # Draw the bounding box
+                rect = patches.Rectangle((detection_mask['rectangle']['left'], detection_mask['rectangle']['top']),
+                                        detection_mask['rectangle']['width'], detection_mask['rectangle']['height'],
+                                        linewidth=3, edgecolor=detection_mask['color'], facecolor='none')
+                ax.add_patch(rect)
+
+                # Add label
+                ax.text(rect.get_x(), rect.get_y() - 10, detection_mask['label'], fontsize=12, color='white',
+                        bbox=dict(boxstyle='round,pad=0.3', facecolor=detection_mask['color'], alpha=0.8))
+
+                composite_image = detection_mask['image']
+
+            # Display the composite image
+            if composite_image is not None:
+                ax.imshow(composite_image.astype(np.uint8))
+
+            ax.set_title(f'Object Detection Results ({len(detection_masks)} objects found)', fontsize=16)
+            ax.axis('off')
+            plt.tight_layout()
+
+            filename = f'{image_name}_{len(detection_masks):03d}_mask.jpg'
+            filepath = os.path.join(output_masked_dir, filename)
+
+            plt.savefig(filepath, format='jpg', dpi=300, bbox_inches='tight')
+            plt.show()
+
+            # Crop with masks
+            print('Cropping with masks...')
+            cropped_mask_images = coco_detector.get_mask_detections(image_np[0], results)
+
+            for detection_count, cropped_image in cropped_mask_images.items():
+                # Create filename
+                filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg"
+                filepath = os.path.join(output_masked_dir, filename)
+
+                # Convert to PIL Image and save
+                pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
+                pil_image.save(filepath, 'JPEG', quality=95)
+
+            print(f'Saved {len(cropped_mask_images)} masked cropped images')
+
+        print('Object detection completed!')
+
 
 if __name__ == '__main__':
     main()
