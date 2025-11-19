@@ -19,7 +19,7 @@ TARGET_CLASS = 18  # Dog class ID
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Detect image objects using trained model')
     parser.add_argument('image_path', help='Path to the image to detect')
-    parser.add_argument('--output-dir', default='cropped_objects', help='Directory to save cropped images')
+    parser.add_argument('output_dir', default='cropped_objects', help='Directory to save cropped images')
 
     args = parser.parse_args()
 
@@ -31,12 +31,12 @@ if __name__ == '__main__':
     coco_detector = COCOObjectDetector(MIN_SCORE_THRESH, TARGET_CLASS)
     print('Model loaded!')
 
-    image_np = coco_detector.preprocess_image(args.image_path)
+    tensor_image = coco_detector.preprocess_image_from_file(args.image_path)
     image_name = os.path.splitext(os.path.basename(args.image_path))[0]  # Without extension
 
     # Running inference
     print('Running inference...')
-    results = coco_detector.detect(image_np)
+    results = coco_detector.detect(tensor_image)
     print('Inference completed!')
 
     # Extract detection results
@@ -56,10 +56,10 @@ if __name__ == '__main__':
 
     if valid_detections > 0:
         print('Drawing detections with bounding boxes...')
-        detection_boxes = coco_detector.get_detections_boxes(image_np[0], results)
+        detection_boxes = coco_detector.get_detections_boxes(tensor_image[0], results)
 
         _, ax = plt.subplots(1, figsize=(12, 8))
-        ax.imshow(image_np[0])
+        ax.imshow(tensor_image[0])
 
         for detection_count, detection_box in detection_boxes.items():
             # Draw the bounding box
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
         # Crop detected objects
         print('Cropping detected objects...')
-        cropped_images = coco_detector.get_detections(image_np[0], results)
+        cropped_images = coco_detector.get_detections(tensor_image[0], results)
 
         for detection_count, cropped_image in cropped_images.items():
             # Create filename
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         # Draw masks
         if masks is not None:
             print('Drawing detections with masks...')
-            detection_masks = coco_detector.get_mask_detections_boxes(image_np[0], results)
+            detection_masks = coco_detector.get_mask_detections_boxes(tensor_image[0], results)
 
             _, ax = plt.subplots(1, figsize=(12, 8))
 
@@ -138,7 +138,7 @@ if __name__ == '__main__':
 
             # Crop with masks
             print('Cropping with masks...')
-            cropped_mask_images = coco_detector.get_mask_detections(image_np[0], results)
+            cropped_mask_images = coco_detector.get_mask_detections(tensor_image[0], results)
 
             for detection_count, cropped_image in cropped_mask_images.items():
                 # Create filename

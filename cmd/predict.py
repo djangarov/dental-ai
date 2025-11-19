@@ -36,7 +36,7 @@ def main():
 
     # Preprocess the image
     print(f'Processing image: {args.image_path}')
-    processed_image = classifier.preprocess_image(args.image_path, classifier.model.input_shape[1:3])
+    processed_image = classifier.preprocess_image_from_file(args.image_path, classifier.model.input_shape[1:3])
 
     # Make prediction
     print('Making prediction...')

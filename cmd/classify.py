@@ -21,7 +21,7 @@ def main():
     parser.add_argument('model_path', help='Path to the trained model file (.keras)')
     parser.add_argument('image_path', help='Path to the image to classify')
     parser.add_argument('dataset', help='Path to dataset directory for class names')
-    parser.add_argument('--output-dir', default='cropped_objects', help='Directory to save cropped images')
+    parser.add_argument('output_dir', default='cropped_objects', help='Directory to save cropped images')
 
     args = parser.parse_args()
 
@@ -41,12 +41,12 @@ def main():
     coco_detector = COCOObjectDetector(MIN_SCORE_THRESH, TARGET_CLASS)
     print('Model loaded!')
 
-    image_np = coco_detector.preprocess_image(args.image_path)
+    tensor_image = coco_detector.preprocess_image_from_file(args.image_path)
     image_name = os.path.splitext(os.path.basename(args.image_path))[0]  # Without extension
 
     # Running inference
     print('Running inference...')
-    results = coco_detector.detect(image_np)
+    results = coco_detector.detect(tensor_image)
     print('Inference completed!')
 
     valid_detections = np.sum(results.scores >= MIN_SCORE_THRESH)
@@ -68,10 +68,10 @@ def main():
         classifier = ImageClassifier(model, args.dataset)
 
         print('Drawing detections with bounding boxes...')
-        detection_boxes = coco_detector.get_detections_boxes(image_np[0], results)
+        detection_boxes = coco_detector.get_detections_boxes(tensor_image[0], results)
 
         _, ax = plt.subplots(1, figsize=(12, 8))
-        ax.imshow(image_np[0])
+        ax.imshow(tensor_image[0])
 
         for detection_count, detection_box in detection_boxes.items():
             # Draw the bounding box
@@ -96,7 +96,7 @@ def main():
 
         # Crop detected objects
         print('Cropping detected objects...')
-        cropped_images = coco_detector.get_detections(image_np[0], results)
+        cropped_images = coco_detector.get_detections(tensor_image[0], results)
 
         for detection_count, cropped_image in cropped_images.items():
             # Create filename
@@ -107,7 +107,7 @@ def main():
             pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
             pil_image.save(filepath, 'JPEG', quality=95)
 
-            processed_image = classifier.preprocess_image(filepath, classifier.model.input_shape[1:3])
+            processed_image = classifier.preprocess_image(pil_image, classifier.model.input_shape[1:3])
 
             # Make prediction
             print('Making prediction...')
@@ -174,7 +174,7 @@ def main():
         # Draw masks
         if masks is not None:
             print('Drawing detections with masks...')
-            detection_masks = coco_detector.get_mask_detections_boxes(image_np[0], results)
+            detection_masks = coco_detector.get_mask_detections_boxes(tensor_image[0], results)
 
             _, ax = plt.subplots(1, figsize=(12, 8))
 
@@ -208,7 +208,7 @@ def main():
 
             # Crop with masks
             print('Cropping with masks...')
-            cropped_mask_images = coco_detector.get_mask_detections(image_np[0], results)
+            cropped_mask_images = coco_detector.get_mask_detections(tensor_image[0], results)
 
             for detection_count, cropped_image in cropped_mask_images.items():
                 # Create filename

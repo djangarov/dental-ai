@@ -25,7 +25,7 @@ def get_class_names(data_dir: str) -> list | None:
 
     return class_names
 
-def preprocess_image(image_path: str, img_size: tuple, model: Model) -> tf.Tensor:
+def preprocess_image_from_file(image_path: str, img_size: tuple, model: Model) -> tf.Tensor:
     """
     Preprocess a single image for prediction
     """
@@ -320,7 +320,7 @@ def predict_image(model_path: str, image_path: str, dataset_dir: str | None = No
 
         # Preprocess the image
         print(f'Processing image: {image_path}')
-        processed_image = preprocess_image(image_path, model.input_shape[1:3], model)
+        processed_image = preprocess_image_from_file(image_path, model.input_shape[1:3], model)
 
         # Make prediction
         print('Making prediction...')
