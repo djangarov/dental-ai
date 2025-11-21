@@ -11,8 +11,8 @@ class VGG19Trainer(BaseTrainer):
     def __init__(self) -> None:
         super().__init__(
             model_name='VGG19',
-            epochs=50,
-            batch_size=32,  # Adjusted for VGG19 memory requirements
+            epochs=20,
+            batch_size=16,  # Adjusted for VGG19 memory requirements
             image_width=224,
             image_height=224)  # VGG19 specific settings
 
@@ -40,9 +40,11 @@ class VGG19Trainer(BaseTrainer):
 
         # Data augmentation layers
         x = keras.layers.RandomFlip('horizontal')(inputs)
-        x = keras.layers.RandomRotation(0.15)(x)
-        x = keras.layers.RandomZoom(0.15)(x)
-        x = keras.layers.RandomBrightness(0.1)(x)
+        x = keras.layers.RandomRotation(0.12)(x)
+        x = keras.layers.RandomZoom(0.12)(x)
+        x = keras.layers.RandomContrast(0.12)(x)
+        x = keras.layers.RandomBrightness(0.12)(x)
+        x = keras.layers.RandomTranslation(0.12, 0.12)(x)
 
         # VGG19 preprocessing and feature extraction
         x = keras.applications.vgg19.preprocess_input(x)
@@ -57,20 +59,26 @@ class VGG19Trainer(BaseTrainer):
 
         # Classification head with regularization
         x = keras.layers.GlobalAveragePooling2D()(x)
+        x = keras.layers.Dropout(0.5)(x)
+        x = keras.layers.Dense(512,
+                               activation='relu',
+                               kernel_regularizer=keras.regularizers.l2(0.001))(x)
+        x = keras.layers.BatchNormalization()(x)
         x = keras.layers.Dropout(0.4)(x)
-        x = keras.layers.Dense(1024, activation='relu')(x)
-        x = keras.layers.Dropout(0.3)(x)
-        x = keras.layers.Dense(512, activation='relu')(x)
-        x = keras.layers.Dropout(0.2)(x)
 
-        # Output layer for multi-class classification
-        outputs = keras.layers.Dense(num_categories, activation='softmax')(x)
+       # Output layer for multi-class classification
+        outputs = keras.layers.Dense(num_categories,
+                                     activation='softmax',
+                                     kernel_regularizer=keras.regularizers.l2(0.001))(x)
 
         model = keras.Model(inputs, outputs)
 
         # Compile model with lower learning rate for transfer learning
         model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=0.0001),
+            optimizer=keras.optimizers.Adam(
+                learning_rate=0.0008,
+                weight_decay=0.0001
+            ),
             loss=keras.losses.SparseCategoricalCrossentropy(),
             metrics=['accuracy']
         )
