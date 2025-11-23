@@ -11,7 +11,7 @@ class InceptionResNetV2Trainer(BaseTrainer):
     def __init__(self) -> None:
         super().__init__(
             model_name='InceptionResNetV2',
-            epochs=50,
+            epochs=30,
             batch_size=16,  # Adjusted for InceptionResNetV2 memory requirements
             image_width=299,
             image_height=299)  # InceptionResNetV2 specific settings
@@ -41,7 +41,9 @@ class InceptionResNetV2Trainer(BaseTrainer):
         x = keras.layers.RandomFlip('horizontal')(inputs)
         x = keras.layers.RandomRotation(0.1)(x)
         x = keras.layers.RandomZoom(0.1)(x)
+        x = keras.layers.RandomContrast(0.1)(x)
         x = keras.layers.RandomBrightness(0.1)(x)
+        x = keras.layers.RandomTranslation(0.1, 0.1)(x)
 
         # InceptionResNetV2 preprocessing and feature extraction
         x = keras.applications.inception_resnet_v2.preprocess_input(x)
@@ -56,18 +58,25 @@ class InceptionResNetV2Trainer(BaseTrainer):
 
         # Classification head with regularization
         x = keras.layers.GlobalAveragePooling2D()(x)
-        x = keras.layers.Dropout(0.3)(x)
-        x = keras.layers.Dense(512, activation='relu')(x)
-        x = keras.layers.Dropout(0.2)(x)
+        x = keras.layers.Dropout(0.25)(x)
+        x = keras.layers.Dense(512,
+                               activation='relu',
+                               kernel_regularizer=keras.regularizers.l2(0.001))(x)
+        x = keras.layers.Dropout(0.15)(x)
 
         # Output layer for multi-class classification
-        outputs = keras.layers.Dense(num_categories, activation='softmax')(x)
+        outputs = keras.layers.Dense(num_categories,
+                                     activation='softmax',
+                                     kernel_regularizer=keras.regularizers.l2(0.0005))(x)
 
         model = keras.Model(inputs, outputs)
 
         # Compile model with lower learning rate for transfer learning
         model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=0.0001),
+            optimizer=keras.optimizers.Adam(
+                learning_rate=0.0003,
+                weight_decay=0.0002
+            ),
             loss=keras.losses.SparseCategoricalCrossentropy(),
             metrics=['accuracy']
         )
