@@ -310,11 +310,23 @@ class COCOObjectDetector(ImageProcessor):
             right = int(xmax * w)
             bottom = int(ymax * h)
 
+             # Calculate 5% padding
+            bbox_width = right - left
+            bbox_height = bottom - top
+            padding_x = int(bbox_width * 0.05)
+            padding_y = int(bbox_height * 0.05)
+
+            # Apply padding
+            left_padded = left - padding_x
+            top_padded = top - padding_y
+            right_padded = right + padding_x
+            bottom_padded = bottom + padding_y
+
             # Ensure coordinates are within image bounds
-            left = max(0, left)
-            top = max(0, top)
-            right = min(w, right)
-            bottom = min(h, bottom)
+            left = max(0, left_padded)
+            top = max(0, top_padded)
+            right = min(w, right_padded)
+            bottom = min(h, bottom_padded)
 
             # Skip if bounding box is too small
             if (right - left) < 10 or (bottom - top) < 10:

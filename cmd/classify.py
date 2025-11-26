@@ -196,7 +196,7 @@ def main():
             if composite_image is not None:
                 ax.imshow(composite_image.astype(np.uint8))
 
-            ax.set_title(f'Object Detection Results ({len(detection_masks)} objects found)', fontsize=16)
+            ax.set_title(f'Object Detection Mask Results ({len(detection_masks)} objects found)', fontsize=16)
             ax.axis('off')
             plt.tight_layout()
 
@@ -218,6 +218,64 @@ def main():
                 # Convert to PIL Image and save
                 pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
                 pil_image.save(filepath, 'JPEG', quality=95)
+
+                processed_image = classifier.preprocess_image(pil_image, classifier.model.input_shape[1:3])
+
+                # Make prediction
+                print('Making mask prediction...')
+                prediction_result = classifier.predict_image(processed_image)
+                # Get top 5 predictions
+                top_5_predictions = prediction_result.get_top(5)
+
+                prediction_data = {
+                    'image_path': filepath,
+                    'predicted_class_id': int(prediction_result.predicted_class),  # Convert to Python int
+                    'confidence': float(prediction_result.confidence),
+                    'predicted_class_name': (prediction_result.class_names[prediction_result.predicted_class]
+                                        if prediction_result.class_names and
+                                        prediction_result.predicted_class < len(prediction_result.class_names)
+                                        else f'Class {prediction_result.predicted_class}'),
+                    'top_5_predictions': [
+                        {
+                            'rank': i + 1,
+                            'class_id': int(idx),  # Ensure this is Python int
+                            'class_name': (prediction_result.class_names[idx]
+                                        if prediction_result.class_names and idx < len(prediction_result.class_names)
+                                        else f'Class {idx}'),
+                            'confidence': float(conf),  # Ensure this is Python float
+                            'confidence_percentage': float(conf * 100)
+                        }
+                        for i, (idx, conf) in enumerate(top_5_predictions)
+                    ],
+                    'timestamp': float(time())  # Ensure this is Python float
+                }
+
+                # Save to JSON file
+                json_filename = f"{filename}.json"
+                json_filepath = os.path.join(output_masked_dir, json_filename)
+
+                with open(json_filepath, 'w') as f:
+                    json.dump(prediction_data, f, indent=2)
+
+                print(f'Predictions saved to: {json_filepath}')
+
+                # Print results
+                print('\n' + '='*50)
+                print(f'PREDICTION MASK RESULTS')
+                print('='*50)
+                print(f'Predicted class ID: {prediction_result.predicted_class}')
+                print(f'Confidence: {prediction_result.confidence:.4f} ({prediction_result.confidence*100:.2f}%)')
+
+                if prediction_result.class_names and prediction_result.predicted_class < len(prediction_result.class_names):
+                    print(f'Predicted class name: {prediction_result.class_names[prediction_result.predicted_class]}')
+                    print('\nTop 5 predictions:')
+                    for i, (idx, conf) in enumerate(top_5_predictions):
+                        if idx < len(prediction_result.class_names):
+                            print(f'{i+1}. {prediction_result.class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)')
+                else:
+                    print('\nTop 5 predictions:')
+                    for i, (idx, conf) in enumerate(top_5_predictions):
+                        print(f'{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)')
 
             print(f'Saved {len(cropped_mask_images)} masked cropped images')
 
