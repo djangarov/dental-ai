@@ -9,12 +9,109 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
+import tensorflow as tf
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from processors import COCOObjectDetector, ImageClassifier
 
 MIN_SCORE_THRESH = 0.3
 TARGET_CLASS = 18  # Dog class ID
+
+def draw_and_save_detection_boxes(image_name: str, tensor_image: tf.Tensor, detection_boxes: dict, output_dir: str):
+    _, ax = plt.subplots(1, figsize=(12, 8))
+    ax.imshow(tensor_image[0])
+
+    for detection_box in detection_boxes.values():
+        # Draw the bounding box
+        rect = patches.Rectangle((detection_box['rectangle']['left'], detection_box['rectangle']['top']),
+                                    detection_box['rectangle']['width'], detection_box['rectangle']['height'],
+                                    linewidth=3, edgecolor=detection_box['color'], facecolor='none')
+        ax.add_patch(rect)
+
+        # Add label
+        ax.text(rect.get_x(), rect.get_y() - 10, detection_box['label'], fontsize=12, color='white',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor=detection_box['color'], alpha=0.8))
+
+    ax.set_title(f'Object Detection Results ({len(detection_boxes)} objects found)', fontsize=16)
+    ax.axis('off')
+    plt.tight_layout()
+
+    filename = f'{image_name}_{len(detection_boxes):03d}.jpg'
+    filepath = os.path.join(output_dir, filename)
+
+    plt.savefig(filepath, format='jpg', dpi=300, bbox_inches='tight')
+    plt.show()
+
+def proceed_predictions(cropped_images: dict, classifier: ImageClassifier, output_dir: str) -> str:
+    for detection_count, cropped_image in cropped_images.items():
+        # Create filename
+        filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}"
+        filepath = os.path.join(output_dir, f"{filename}.jpg")
+
+        # Convert to PIL Image and save
+        pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
+        pil_image.save(filepath, 'JPEG', quality=95)
+
+        processed_image = classifier.preprocess_image(pil_image, classifier.model.input_shape[1:3])
+
+        # Make prediction
+        print('Making prediction...')
+        prediction_result = classifier.predict_image(processed_image)
+        # Get top 5 predictions
+        top_5_predictions = prediction_result.get_top(5)
+
+        prediction_data = {
+            'image_path': filepath,
+            'predicted_class_id': int(prediction_result.predicted_class),  # Convert to Python int
+            'confidence': float(prediction_result.confidence),
+            'predicted_class_name': (prediction_result.class_names[prediction_result.predicted_class]
+                                if prediction_result.class_names and
+                                prediction_result.predicted_class < len(prediction_result.class_names)
+                                else f'Class {prediction_result.predicted_class}'),
+            'top_5_predictions': [
+                {
+                    'rank': i + 1,
+                    'class_id': int(idx),  # Ensure this is Python int
+                    'class_name': (prediction_result.class_names[idx]
+                                if prediction_result.class_names and idx < len(prediction_result.class_names)
+                                else f'Class {idx}'),
+                    'confidence': float(conf),  # Ensure this is Python float
+                    'confidence_percentage': float(conf * 100)
+                }
+                for i, (idx, conf) in enumerate(top_5_predictions)
+            ],
+            'timestamp': float(time())  # Ensure this is Python float
+        }
+
+        # Save to JSON file
+        json_filename = f"{filename}.json"
+        json_filepath = os.path.join(output_dir, json_filename)
+
+        with open(json_filepath, 'w') as f:
+            json.dump(prediction_data, f, indent=2)
+
+        print(f'Predictions saved to: {json_filepath}')
+
+        # Print results
+        print('\n' + '='*50)
+        print(f'PREDICTION RESULTS')
+        print('='*50)
+        print(f'Predicted class ID: {prediction_result.predicted_class}')
+        print(f'Confidence: {prediction_result.confidence:.4f} ({prediction_result.confidence*100:.2f}%)')
+
+        if prediction_result.class_names and prediction_result.predicted_class < len(prediction_result.class_names):
+            print(f'Predicted class name: {prediction_result.class_names[prediction_result.predicted_class]}')
+            print('\nTop 5 predictions:')
+            for i, (idx, conf) in enumerate(top_5_predictions):
+                if idx < len(prediction_result.class_names):
+                    print(f'{i+1}. {prediction_result.class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)')
+        else:
+            print('\nTop 5 predictions:')
+            for i, (idx, conf) in enumerate(top_5_predictions):
+                print(f'{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)')
+
+    print(f'Saved {len(cropped_images)} cropped images')
+
 
 def main():
     parser = argparse.ArgumentParser(description='Classify image class using trained model')
@@ -59,227 +156,48 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(output_masked_dir, exist_ok=True)
 
-    if valid_detections > 0:
-        # Load the model
-        print(f'Loading model from {args.model_path}...')
-        model = keras.models.load_model(args.model_path)
-        print('Model loaded successfully!')
+    if valid_detections == 0:
+        print('No objects detected with sufficient confidence. Exiting.')
+        return
 
-        classifier = ImageClassifier(model, args.dataset)
+    # Load the model
+    print(f'Loading model from {args.model_path}...')
+    model = keras.models.load_model(args.model_path)
+    print('Model loaded successfully!')
 
-        print('Drawing detections with bounding boxes...')
-        detection_boxes = coco_detector.get_detections_boxes(tensor_image[0], results)
+    classifier = ImageClassifier(model, args.dataset)
 
-        _, ax = plt.subplots(1, figsize=(12, 8))
-        ax.imshow(tensor_image[0])
+    print('Drawing detections with bounding boxes...')
+    detection_boxes = coco_detector.get_detections_boxes(tensor_image[0], results)
 
-        for detection_count, detection_box in detection_boxes.items():
-            # Draw the bounding box
-            rect = patches.Rectangle((detection_box['rectangle']['left'], detection_box['rectangle']['top']),
-                                     detection_box['rectangle']['width'], detection_box['rectangle']['height'],
-                                     linewidth=3, edgecolor=detection_box['color'], facecolor='none')
-            ax.add_patch(rect)
+    draw_and_save_detection_boxes(image_name, tensor_image, detection_boxes, output_dir)
 
-            # Add label
-            ax.text(rect.get_x(), rect.get_y() - 10, detection_box['label'], fontsize=12, color='white',
-                    bbox=dict(boxstyle='round,pad=0.3', facecolor=detection_box['color'], alpha=0.8))
+    # Crop detected objects
+    print('Cropping detected objects...')
+    cropped_images = coco_detector.get_detections(tensor_image[0], results)
 
-        ax.set_title(f'Object Detection Results ({len(detection_boxes)} objects found)', fontsize=16)
-        ax.axis('off')
-        plt.tight_layout()
+    print('Predicting...')
+    proceed_predictions(cropped_images, classifier, output_dir)
 
-        filename = f'{image_name}_{len(detection_boxes):03d}.jpg'
-        filepath = os.path.join(output_dir, filename)
+    # Handle models with masks
+    print('Model supports instance segmentation masks!')
+    masks = results.masks
 
-        plt.savefig(filepath, format='jpg', dpi=300, bbox_inches='tight')
-        plt.show()
+    # Draw masks
+    if masks is not None:
+        print('Drawing detections with masks...')
+        detection_masks = coco_detector.get_mask_detections_boxes(tensor_image[0], results)
 
-        # Crop detected objects
-        print('Cropping detected objects...')
-        cropped_images = coco_detector.get_detections(tensor_image[0], results)
+        draw_and_save_detection_boxes(image_name, tensor_image, detection_masks, output_masked_dir)
 
-        for detection_count, cropped_image in cropped_images.items():
-            # Create filename
-            filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}"
-            filepath = os.path.join(output_dir, f"{filename}.jpg")
+        # Crop with masks
+        print('Cropping with masks...')
+        cropped_mask_images = coco_detector.get_mask_detections(tensor_image[0], results)
 
-            # Convert to PIL Image and save
-            pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
-            pil_image.save(filepath, 'JPEG', quality=95)
+        print('Predicting with masks...')
+        proceed_predictions(cropped_mask_images, classifier, output_masked_dir)
 
-            processed_image = classifier.preprocess_image(pil_image, classifier.model.input_shape[1:3])
-
-            # Make prediction
-            print('Making prediction...')
-            prediction_result = classifier.predict_image(processed_image)
-            # Get top 5 predictions
-            top_5_predictions = prediction_result.get_top(5)
-
-            prediction_data = {
-                'image_path': filepath,
-                'predicted_class_id': int(prediction_result.predicted_class),  # Convert to Python int
-                'confidence': float(prediction_result.confidence),
-                'predicted_class_name': (prediction_result.class_names[prediction_result.predicted_class]
-                                    if prediction_result.class_names and
-                                    prediction_result.predicted_class < len(prediction_result.class_names)
-                                    else f'Class {prediction_result.predicted_class}'),
-                'top_5_predictions': [
-                    {
-                        'rank': i + 1,
-                        'class_id': int(idx),  # Ensure this is Python int
-                        'class_name': (prediction_result.class_names[idx]
-                                    if prediction_result.class_names and idx < len(prediction_result.class_names)
-                                    else f'Class {idx}'),
-                        'confidence': float(conf),  # Ensure this is Python float
-                        'confidence_percentage': float(conf * 100)
-                    }
-                    for i, (idx, conf) in enumerate(top_5_predictions)
-                ],
-                'timestamp': float(time())  # Ensure this is Python float
-            }
-
-            # Save to JSON file
-            json_filename = f"{filename}.json"
-            json_filepath = os.path.join(output_dir, json_filename)
-
-            with open(json_filepath, 'w') as f:
-                json.dump(prediction_data, f, indent=2)
-
-            print(f'Predictions saved to: {json_filepath}')
-
-            # Print results
-            print('\n' + '='*50)
-            print(f'PREDICTION RESULTS')
-            print('='*50)
-            print(f'Predicted class ID: {prediction_result.predicted_class}')
-            print(f'Confidence: {prediction_result.confidence:.4f} ({prediction_result.confidence*100:.2f}%)')
-
-            if prediction_result.class_names and prediction_result.predicted_class < len(prediction_result.class_names):
-                print(f'Predicted class name: {prediction_result.class_names[prediction_result.predicted_class]}')
-                print('\nTop 5 predictions:')
-                for i, (idx, conf) in enumerate(top_5_predictions):
-                    if idx < len(prediction_result.class_names):
-                        print(f'{i+1}. {prediction_result.class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)')
-            else:
-                print('\nTop 5 predictions:')
-                for i, (idx, conf) in enumerate(top_5_predictions):
-                    print(f'{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)')
-
-        print(f'Saved {len(cropped_images)} cropped images')
-
-        # Handle models with masks
-        print('Model supports instance segmentation masks!')
-        masks = results.masks
-
-        # Draw masks
-        if masks is not None:
-            print('Drawing detections with masks...')
-            detection_masks = coco_detector.get_mask_detections_boxes(tensor_image[0], results)
-
-            _, ax = plt.subplots(1, figsize=(12, 8))
-
-            composite_image = None
-            for detection_count, detection_mask in detection_masks.items():
-                # Draw the bounding box
-                rect = patches.Rectangle((detection_mask['rectangle']['left'], detection_mask['rectangle']['top']),
-                                        detection_mask['rectangle']['width'], detection_mask['rectangle']['height'],
-                                        linewidth=3, edgecolor=detection_mask['color'], facecolor='none')
-                ax.add_patch(rect)
-
-                # Add label
-                ax.text(rect.get_x(), rect.get_y() - 10, detection_mask['label'], fontsize=12, color='white',
-                        bbox=dict(boxstyle='round,pad=0.3', facecolor=detection_mask['color'], alpha=0.8))
-
-                composite_image = detection_mask['image']
-
-            # Display the composite image
-            if composite_image is not None:
-                ax.imshow(composite_image.astype(np.uint8))
-
-            ax.set_title(f'Object Detection Mask Results ({len(detection_masks)} objects found)', fontsize=16)
-            ax.axis('off')
-            plt.tight_layout()
-
-            filename = f'{image_name}_{len(detection_masks):03d}_mask.jpg'
-            filepath = os.path.join(output_masked_dir, filename)
-
-            plt.savefig(filepath, format='jpg', dpi=300, bbox_inches='tight')
-            plt.show()
-
-            # Crop with masks
-            print('Cropping with masks...')
-            cropped_mask_images = coco_detector.get_mask_detections(tensor_image[0], results)
-
-            for detection_count, cropped_image in cropped_mask_images.items():
-                # Create filename
-                filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}.jpg"
-                filepath = os.path.join(output_masked_dir, filename)
-
-                # Convert to PIL Image and save
-                pil_image = Image.fromarray(cropped_image['image'].astype(np.uint8))
-                pil_image.save(filepath, 'JPEG', quality=95)
-
-                processed_image = classifier.preprocess_image(pil_image, classifier.model.input_shape[1:3])
-
-                # Make prediction
-                print('Making mask prediction...')
-                prediction_result = classifier.predict_image(processed_image)
-                # Get top 5 predictions
-                top_5_predictions = prediction_result.get_top(5)
-
-                prediction_data = {
-                    'image_path': filepath,
-                    'predicted_class_id': int(prediction_result.predicted_class),  # Convert to Python int
-                    'confidence': float(prediction_result.confidence),
-                    'predicted_class_name': (prediction_result.class_names[prediction_result.predicted_class]
-                                        if prediction_result.class_names and
-                                        prediction_result.predicted_class < len(prediction_result.class_names)
-                                        else f'Class {prediction_result.predicted_class}'),
-                    'top_5_predictions': [
-                        {
-                            'rank': i + 1,
-                            'class_id': int(idx),  # Ensure this is Python int
-                            'class_name': (prediction_result.class_names[idx]
-                                        if prediction_result.class_names and idx < len(prediction_result.class_names)
-                                        else f'Class {idx}'),
-                            'confidence': float(conf),  # Ensure this is Python float
-                            'confidence_percentage': float(conf * 100)
-                        }
-                        for i, (idx, conf) in enumerate(top_5_predictions)
-                    ],
-                    'timestamp': float(time())  # Ensure this is Python float
-                }
-
-                # Save to JSON file
-                json_filename = f"{filename}.json"
-                json_filepath = os.path.join(output_masked_dir, json_filename)
-
-                with open(json_filepath, 'w') as f:
-                    json.dump(prediction_data, f, indent=2)
-
-                print(f'Predictions saved to: {json_filepath}')
-
-                # Print results
-                print('\n' + '='*50)
-                print(f'PREDICTION MASK RESULTS')
-                print('='*50)
-                print(f'Predicted class ID: {prediction_result.predicted_class}')
-                print(f'Confidence: {prediction_result.confidence:.4f} ({prediction_result.confidence*100:.2f}%)')
-
-                if prediction_result.class_names and prediction_result.predicted_class < len(prediction_result.class_names):
-                    print(f'Predicted class name: {prediction_result.class_names[prediction_result.predicted_class]}')
-                    print('\nTop 5 predictions:')
-                    for i, (idx, conf) in enumerate(top_5_predictions):
-                        if idx < len(prediction_result.class_names):
-                            print(f'{i+1}. {prediction_result.class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)')
-                else:
-                    print('\nTop 5 predictions:')
-                    for i, (idx, conf) in enumerate(top_5_predictions):
-                        print(f'{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)')
-
-            print(f'Saved {len(cropped_mask_images)} masked cropped images')
-
-        print('Object detection completed!')
+    print('Object detection completed!')
 
 
 if __name__ == '__main__':
