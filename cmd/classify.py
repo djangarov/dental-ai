@@ -68,31 +68,10 @@ def proceed_predictions(cropped_images: dict, classifier: ImageClassifier, outpu
                                 if prediction_result.class_names and
                                 prediction_result.predicted_class < len(prediction_result.class_names)
                                 else f'Class {prediction_result.predicted_class}'),
-            'top_5_predictions': [
-                {
-                    'rank': i + 1,
-                    'class_id': int(idx),  # Ensure this is Python int
-                    'class_name': (prediction_result.class_names[idx]
-                                if prediction_result.class_names and idx < len(prediction_result.class_names)
-                                else f'Class {idx}'),
-                    'confidence': float(conf),  # Ensure this is Python float
-                    'confidence_percentage': float(conf * 100)
-                }
-                for i, (idx, conf) in enumerate(top_5_predictions)
-            ],
+            'top_5_predictions': [],
             'timestamp': float(time())  # Ensure this is Python float
         }
 
-        # Save to JSON file
-        json_filename = f"{filename}.json"
-        json_filepath = os.path.join(output_dir, json_filename)
-
-        with open(json_filepath, 'w') as f:
-            json.dump(prediction_data, f, indent=2)
-
-        print(f'Predictions saved to: {json_filepath}')
-
-        # Print results
         print('\n' + '='*50)
         print(f'PREDICTION RESULTS')
         print('='*50)
@@ -105,10 +84,33 @@ def proceed_predictions(cropped_images: dict, classifier: ImageClassifier, outpu
             for i, (idx, conf) in enumerate(top_5_predictions):
                 if idx < len(prediction_result.class_names):
                     print(f'{i+1}. {prediction_result.class_names[idx]}: {conf:.4f} ({conf*100:.2f}%)')
+                    prediction_data['top_5_predictions'].append({
+                        'rank': i + 1,
+                        'class_id': int(idx),
+                        'class_name': prediction_result.class_names[idx],
+                        'confidence': float(conf),
+                        'confidence_percentage': float(conf * 100)
+                    })
         else:
             print('\nTop 5 predictions:')
             for i, (idx, conf) in enumerate(top_5_predictions):
                 print(f'{i+1}. Class {idx}: {conf:.4f} ({conf*100:.2f}%)')
+                prediction_data['top_5_predictions'].append({
+                    'rank': i + 1,
+                    'class_id': int(idx),
+                    'class_name': f'Class {idx}',
+                    'confidence': float(conf),
+                    'confidence_percentage': float(conf * 100)
+                })
+
+    # Save to JSON file
+    json_filename = f"{filename}.json"
+    json_filepath = os.path.join(output_dir, json_filename)
+
+    with open(json_filepath, 'w', encoding='utf-8') as f:
+        json.dump(prediction_data, f, indent=2)
+
+    print(f'Predictions saved to: {json_filepath}')
 
     print(f'Saved {len(cropped_images)} cropped images')
 
@@ -176,7 +178,7 @@ def main():
     print('Cropping detected objects...')
     cropped_images = coco_detector.get_detections(tensor_image[0], results)
 
-    print('Predicting...')
+    print('Proceed predicting...')
     proceed_predictions(cropped_images, classifier, output_dir)
 
     # Handle models with masks
@@ -194,7 +196,7 @@ def main():
         print('Cropping with masks...')
         cropped_mask_images = coco_detector.get_mask_detections(tensor_image[0], results)
 
-        print('Predicting with masks...')
+        print('Proceed predicting with masks...')
         proceed_predictions(cropped_mask_images, classifier, output_masked_dir)
 
     print('Object detection completed!')
