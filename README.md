@@ -22,3 +22,19 @@ Segmentation
 ```
 uv run cmd/coco_detect.py storage/test-images/{IMAGE} storage/{RESULT DIR}
 ```
+
+### train
+```
+uv run cmd/train.py {TYPE} ./storage/datasets/stanford-dogs-dataset --model_name={MODEL NAME}
+```
+
+##### TYPES:
+1. vgg19
+2. resnet50
+3. inception_v3
+4. custom
+5. inception_resnet_v2
+6. efficientnet_b7
+
+##### model_name
+If missing the model type will be used as name.
