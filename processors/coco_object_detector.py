@@ -70,14 +70,18 @@ class COCOObjectDetector(ImageProcessor):
         """
         path = f'{STORAGE_DIR}{MODEL_NAME}'
 
-        if os.path.exists(path):
-            model = hub.load(path)
+        try:
+            if os.path.exists(path):
+                model = hub.load(path)
+                return model
+
+            model = hub.load(MODEL_URL)
+            tf.saved_model.save(model, path)
+
             return model
-
-        model = hub.load(MODEL_URL)
-        tf.saved_model.save(model, path)
-
-        return model
+        except Exception as e:
+            print(f'Error loading model: {e}')
+            raise
 
     def detect(self, image: tf.Tensor) -> DetectionResult:
         """
