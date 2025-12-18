@@ -60,26 +60,26 @@ class InceptionV3Trainer(BaseTrainer):
 
         # Classification head with regularization
         x = keras.layers.GlobalAveragePooling2D()(x)
-        x = keras.layers.Dropout(0.5)(x)
+        x = keras.layers.Dropout(0.2)(x)
         # Add L2 regularization
-        x = keras.layers.Dense(256,
+        x = keras.layers.Dense(512,
                                activation='relu',
-                               kernel_regularizer=keras.regularizers.l2(0.002))(x)
+                               kernel_regularizer=keras.regularizers.l2(0.0005))(x)
         x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Dropout(0.4)(x)
+        x = keras.layers.Dropout(0.2)(x)
 
         # Output layer for multi-class classification
         outputs = keras.layers.Dense(num_categories,
                                      activation='softmax',
-                                     kernel_regularizer=keras.regularizers.l2(0.001))(x)
+                                     kernel_regularizer=keras.regularizers.l2(0.0003))(x)
 
         model = keras.Model(inputs, outputs)
 
         # Compile model with lower learning rate for transfer learning
         model.compile(
             optimizer=keras.optimizers.Adam(
-                learning_rate=0.0003,
-                weight_decay=0.0002
+                learning_rate=0.0006,
+                weight_decay=0.00008
             ),
             loss=keras.losses.SparseCategoricalCrossentropy(),
             metrics=['accuracy']
