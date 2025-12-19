@@ -60,18 +60,18 @@ class ResNet50Trainer(BaseTrainer):
 
         # Classification head with regularization
         x = keras.layers.GlobalAveragePooling2D()(x)
-        x = keras.layers.Dropout(0.45)(x)
+        x = keras.layers.Dropout(0.35)(x)
         # Add L2 regularization
         x = keras.layers.Dense(512,
                                activation='relu',
-                               kernel_regularizer=keras.regularizers.l2(0.005))(x)
+                               kernel_regularizer=keras.regularizers.l2(0.0045))(x)
         x = keras.layers.BatchNormalization()(x)
-        x = keras.layers.Dropout(0.35)(x)
+        x = keras.layers.Dropout(0.25)(x)
 
         # Output layer for multi-class classification
         outputs = keras.layers.Dense(num_categories,
                                      activation='softmax',
-                                     kernel_regularizer=keras.regularizers.l2(0.005))(x)
+                                     kernel_regularizer=keras.regularizers.l2(0.0045))(x)
 
         model = keras.Model(inputs, outputs)
 
