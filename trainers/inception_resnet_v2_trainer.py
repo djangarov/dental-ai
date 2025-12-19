@@ -11,7 +11,7 @@ class InceptionResNetV2Trainer(BaseTrainer):
     def __init__(self) -> None:
         super().__init__(
             model_type='InceptionResNetV2',
-            epochs=30,
+            epochs=25,
             batch_size=16,  # Adjusted for InceptionResNetV2 memory requirements
             image_width=299,
             image_height=299)  # InceptionResNetV2 specific settings
@@ -60,24 +60,24 @@ class InceptionResNetV2Trainer(BaseTrainer):
 
         # Classification head with regularization
         x = keras.layers.GlobalAveragePooling2D()(x)
-        x = keras.layers.Dropout(0.25)(x)
+        x = keras.layers.Dropout(0.15)(x)
         x = keras.layers.Dense(512,
                                activation='relu',
-                               kernel_regularizer=keras.regularizers.l2(0.001))(x)
-        x = keras.layers.Dropout(0.15)(x)
+                               kernel_regularizer=keras.regularizers.l2(0.0005))(x)
+        x = keras.layers.Dropout(0.08)(x)
 
         # Output layer for multi-class classification
         outputs = keras.layers.Dense(num_categories,
                                      activation='softmax',
-                                     kernel_regularizer=keras.regularizers.l2(0.0005))(x)
+                                     kernel_regularizer=keras.regularizers.l2(0.0003))(x)
 
         model = keras.Model(inputs, outputs)
 
         # Compile model with lower learning rate for transfer learning
         model.compile(
             optimizer=keras.optimizers.Adam(
-                learning_rate=0.0003,
-                weight_decay=0.0002
+                learning_rate=0.0005,
+                weight_decay=0.0001
             ),
             loss=keras.losses.SparseCategoricalCrossentropy(),
             metrics=['accuracy']
