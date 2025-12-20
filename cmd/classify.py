@@ -1,13 +1,10 @@
 import os
 import sys
-from dotenv import load_dotenv
-
-load_dotenv()
-
 import argparse
 import json
 import re
 from time import time
+from dotenv import load_dotenv
 
 import keras
 import matplotlib.patches as patches
@@ -17,9 +14,11 @@ from PIL import Image
 import tensorflow as tf
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from llms import OllamaClient, GemClient
+from llms import OllamaClient, GemClient, ClientInterface
 from llms.prompts import OWNER_FOCUSED_BREED_DETAILS
 from processors import COCOObjectDetector, ImageClassifier
+
+load_dotenv()
 
 MIN_SCORE_THRESH = 0.3
 TARGET_CLASS = 18  # Dog class ID
@@ -57,7 +56,9 @@ def draw_and_save_detection_boxes(image_name: str, tensor_image: tf.Tensor, dete
 
     plt.savefig(filepath, format='jpg', dpi=300, bbox_inches='tight')
 
-def proceed_predictions(cropped_images: dict, classifier: ImageClassifier, output_dir: str) -> None:
+def proceed_predictions(cropped_images: dict, classifier: ImageClassifier, output_dir: str) -> list[dict]:
+    predictions_result = []
+
     for detection_count, cropped_image in cropped_images.items():
         # Create filename
         filename = f"{cropped_image['class_name']}_{detection_count:03d}_score_{cropped_image['score']:.2f}"
@@ -72,6 +73,7 @@ def proceed_predictions(cropped_images: dict, classifier: ImageClassifier, outpu
         # Make prediction
         print('Making prediction...')
         prediction_result = classifier.predict_image(processed_image)
+
         # Get top 5 predictions
         top_5_predictions = prediction_result.get_top(5)
 
@@ -114,8 +116,32 @@ def proceed_predictions(cropped_images: dict, classifier: ImageClassifier, outpu
             json.dump(prediction_data, f, indent=2)
 
         print(f'Predictions saved to: {json_filepath}')
+        predictions_result.append(prediction_data)
 
     print(f'Saved {len(cropped_images)} cropped images')
+
+    return predictions_result
+
+def get_info_for_prediction(predictions: list[dict], predictions_masked: list[dict] | None, llm_client: ClientInterface) -> None:
+    asked_for = []
+
+    for idx, prediction in enumerate(predictions):
+        top_prediction = prediction['predicted_class_name']
+
+        if predictions_masked is not None:
+            top_prediction = prediction['predicted_class_name'] if prediction['confidence'] >= predictions_masked[idx]['confidence'] else predictions_masked[idx]['predicted_class_name']
+
+        top_class_name = re.sub(r'[-_]', ' ', re.sub(r'^[^-]*-', '', top_prediction))
+
+        if top_class_name in asked_for:
+            continue  # Skip if already asked for this class
+
+        asked_for.append(top_class_name)
+        print('\n' + '='*50)
+        print(f'Asking LLM for details about: {top_class_name}')
+        print('\n' + '='*50)
+        question = OWNER_FOCUSED_BREED_DETAILS.format(breed=top_class_name)
+        llm_client.stream_chat(question)
 
 
 def main():
@@ -183,11 +209,12 @@ def main():
     cropped_images = coco_detector.get_detections(tensor_image[0], results)
 
     print('Proceed predicting...')
-    proceed_predictions(cropped_images, classifier, output_dir)
+    predictions_result = proceed_predictions(cropped_images, classifier, output_dir)
 
     # Handle models with masks
     print('\nModel supports instance segmentation masks!')
     masks = results.masks
+    predictions_result_masked = None
 
     # Draw masks
     if masks is not None:
@@ -201,19 +228,17 @@ def main():
         cropped_mask_images = coco_detector.get_mask_detections(tensor_image[0], results)
 
         print('Proceed predicting with masks...')
-        proceed_predictions(cropped_mask_images, classifier, output_masked_dir)
+        predictions_result_masked = proceed_predictions(cropped_mask_images, classifier, output_masked_dir)
 
     print('Object detection completed!')
 
-    # result = re.sub(r'[-_]', ' ', re.sub(r'^[^-]*-', '', 'sintetic-jack-russell-terrier'))
-    # question = OWNER_FOCUSED_BREED_DETAILS.format(breed=result)
-    # print('\nAsking Ollama LLM for more details about the breed...')
-    # ollama_client = OllamaClient()
-    # ollama_client.chat(question)
+    print('\nAsking Ollama LLM for more details about the dog breed...')
+    ollama_client = OllamaClient()
+    get_info_for_prediction(predictions_result, predictions_result_masked, ollama_client)
 
-    # print('\nAsking Gemini LLM for more details about the breed...')
-    # gem_client = GemClient()
-    # gem_client.stream_chat(question)
+    print('\nAsking Gemini LLM for more details about the dog breed...')
+    gem_client = GemClient()
+    get_info_for_prediction(predictions_result, predictions_result_masked, gem_client)
 
 
 if __name__ == '__main__':

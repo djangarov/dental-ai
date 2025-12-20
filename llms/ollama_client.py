@@ -10,22 +10,30 @@ class OllamaClient(ClientInterface):
         self.model = model
 
     def chat(self, message: str) -> None:
-        response = chat(
-            model=self.model,
-            messages=self._build_messages(message),
-            stream=False,
-        )
+        try:
+            response = chat(
+                model=self.model,
+                messages=self._build_messages(message),
+                stream=False,
+            )
 
-        print(response.message.content)
+            print(response.message.content)
+        except Exception as e:
+            print(f"An error occurred during ollama chat: {e}")
+            raise
 
     def stream_chat(self, message: str) -> None:
-        stream = chat(
-            model=self.model,
-            messages=self._build_messages(message),
-            stream=True,
-        )
+        try:
+            stream = chat(
+                model=self.model,
+                messages=self._build_messages(message),
+                stream=True,
+            )
 
-        self._handle_stream(stream)
+            self._handle_stream(stream)
+        except Exception as e:
+            print(f"An error occurred during ollama stream chat: {e}")
+            raise
 
     def _build_messages(self, message: str) -> list[dict]:
         return [{'role': 'user', 'content': message}]
