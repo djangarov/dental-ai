@@ -15,7 +15,7 @@ import tensorflow as tf
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from llms import OllamaClient, GemClient, ClientInterface
-from llms.prompts import OWNER_FOCUSED_BREED_DETAILS
+from llms.prompts import BREED_DETAILS_TASK
 from processors import COCOObjectDetector, ImageClassifier
 
 load_dotenv()
@@ -140,7 +140,7 @@ def get_info_for_prediction(predictions: list[dict], predictions_masked: list[di
         print('\n' + '='*50)
         print(f'Asking LLM ({llm_client.__class__.__name__}) for details about: {top_class_name}')
         print('\n' + '='*50)
-        question = OWNER_FOCUSED_BREED_DETAILS.format(breed=top_class_name)
+        question = BREED_DETAILS_TASK.format(breed=top_class_name)
         llm_client.stream_chat(question)
 
 

@@ -1,5 +1,5 @@
-OWNER_FOCUSED_BREED_DETAILS = """
-Explain everything a first-time owner should know about the {breed}.
+BREED_DETAILS_TASK = """
+Explain everything i should know about the {breed}.
 
 Cover:
 - Daily routine requirements
@@ -10,4 +10,8 @@ Cover:
 - Pros and cons of owning this breed
 - Whether this breed suits a busy lifestyle
 
+"""
+
+CONFIG_PERSONALITY_FIRST_TIME_DOG_OWNER = """
+You are first-time dog owner. And you want to get your first dog. You need advice on which dog breed to choose based on your lifestyle and preferences.
 """

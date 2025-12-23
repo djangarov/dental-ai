@@ -3,6 +3,7 @@ from google import genai
 from google.genai import types
 
 from llms import ClientInterface
+from llms.prompts import CONFIG_PERSONALITY_FIRST_TIME_DOG_OWNER
 
 
 MODEL = 'gemini-2.5-flash'
@@ -22,27 +23,31 @@ class GemClient(ClientInterface):
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=message,
-                config=types.GenerateContentConfig(
-                    thinking_config=types.ThinkingConfig(thinking_budget=0)
-                ),
+                config=self._build_config(),
             )
 
             print(response.text)
         except Exception as e:
             print(f"An error occurred during gemini chat: {e}")
-            raise
 
     def stream_chat(self, message: str) -> None:
         try:
             stream = self.client.models.generate_content_stream(
                 model=self.model,
-                contents=[message]
+                contents=[message],
+                config=self._build_config(),
             )
 
             self._handle_stream(stream)
         except Exception as e:
             print(f"An error occurred during gemini stream chat: {e}")
-            raise
+
+    def _build_config(self) -> types.GenerateContentConfig:
+        return types.GenerateContentConfig(
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+            system_instruction=CONFIG_PERSONALITY_FIRST_TIME_DOG_OWNER,
+            temperature=0.4,
+        )
 
     def _handle_stream(self, stream: types.GenerateContentResponse) -> None:
         for chunk in stream:
